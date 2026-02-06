@@ -23,6 +23,25 @@ let isReady = false;
 let hasStarted = false;
 let status = "idle";
 let latestQrImage = null;
+let activeAdminId = null;
+let pendingAdminId = null;
+let activeAdminNumber = null;
+let activeAdminName = null;
+
+const updateAdminWhatsAppDetails = async (adminId) => {
+  if (!adminId) return;
+  const info = client.info || {};
+  const widUser = info?.wid?.user || activeAdminNumber;
+  const displayName = info?.pushname || info?.displayName || activeAdminName;
+  activeAdminNumber = widUser;
+  activeAdminName = displayName;
+  await db.query(
+    `UPDATE admin_accounts
+     SET whatsapp_number = ?, whatsapp_name = ?, whatsapp_connected_at = NOW()
+     WHERE id = ?`,
+    [activeAdminNumber, activeAdminName, adminId]
+  );
+};
 
 const emitStatus = (nextStatus) => {
   status = nextStatus;
@@ -50,12 +69,27 @@ client.on("ready", () => {
   latestQrImage = null;
   emitStatus("connected");
   console.log("✅ WhatsApp Ready");
+
+  if (pendingAdminId) {
+    activeAdminId = pendingAdminId;
+    pendingAdminId = null;
+  }
+
+  if (activeAdminId) {
+    updateAdminWhatsAppDetails(activeAdminId).catch((err) => {
+      console.error("❌ Failed to update admin WhatsApp details:", err.message);
+    });
+  } else {
+    console.warn("⚠️ WhatsApp connected without an active admin.");
+  }
 });
 
 client.on("disconnected", () => {
   isReady = false;
   emitStatus("disconnected");
   console.log("⚠️ WhatsApp disconnected");
+  activeAdminNumber = null;
+  activeAdminName = null;
 });
 
 client.on("auth_failure", () => {
@@ -64,16 +98,37 @@ client.on("auth_failure", () => {
   console.log("❌ WhatsApp auth failure");
 });
 
-export const startWhatsApp = async () => {
+export const startWhatsApp = async (adminId) => {
   if (hasStarted) {
-    return { status, alreadyStarted: true };
+    if (adminId) {
+      if (status === "connected") {
+        activeAdminId = adminId;
+        updateAdminWhatsAppDetails(activeAdminId).catch((err) => {
+          console.error("❌ Failed to update admin WhatsApp details:", err.message);
+        });
+      } else {
+        pendingAdminId = adminId;
+      }
+    }
+    return {
+      status,
+      alreadyStarted: true,
+      activeAdminId,
+    };
   }
 
   hasStarted = true;
+  if (adminId) {
+    pendingAdminId = adminId;
+  }
   emitStatus("starting");
   try {
     await client.initialize();
-    return { status, alreadyStarted: false };
+    return {
+      status,
+      alreadyStarted: false,
+      activeAdminId,
+    };
   } catch (err) {
     hasStarted = false;
     emitStatus("error");
@@ -93,6 +148,10 @@ export const stopWhatsApp = async () => {
     isReady = false;
     latestQrImage = null;
     emitStatus("disconnected");
+    activeAdminId = null;
+    pendingAdminId = null;
+    activeAdminNumber = null;
+    activeAdminName = null;
   }
   return { status, alreadyStarted: true };
 };
@@ -101,6 +160,9 @@ export const getWhatsAppState = () => ({
   status,
   ready: isReady,
   qrImage: latestQrImage,
+  activeAdminId,
+  activeAdminNumber,
+  activeAdminName,
 });
 
 /* ===============================
@@ -109,16 +171,6 @@ export const getWhatsAppState = () => ({
 const users = Object.create(null);
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-const getDefaultAdminId = async () => {
-  const [rows] = await db.query(
-    `SELECT id
-     FROM admin_accounts
-     WHERE status = 'active'
-     ORDER BY (admin_tier = 'super_admin') DESC, created_at ASC
-     LIMIT 1`
-  );
-  return rows[0]?.id || null;
-};
 
 /* ===============================
    🔥 AUTOMATION LOGIC
@@ -140,6 +192,11 @@ client.on("message", async (message) => {
     /* ===============================
        🔍 CHECK USER IN DB
        =============================== */
+    if (!activeAdminId) {
+      console.warn("⚠️ Incoming message ignored because no admin is connected.");
+      return;
+    }
+
     const [rows] = await db.query(
       "SELECT id, name, email, assigned_admin_id FROM users WHERE phone = ?",
       [phone]
@@ -147,7 +204,14 @@ client.on("message", async (message) => {
 
     const isReturningUser = rows.length > 0;
     const existingUser = isReturningUser ? rows[0] : null;
-    const assignedAdminId = existingUser?.assigned_admin_id || (await getDefaultAdminId());
+    let assignedAdminId = existingUser?.assigned_admin_id || activeAdminId;
+    if (existingUser && existingUser.assigned_admin_id !== activeAdminId) {
+      assignedAdminId = activeAdminId;
+      await db.query(
+        "UPDATE users SET assigned_admin_id = ? WHERE id = ?",
+        [activeAdminId, existingUser.id]
+      );
+    }
 
     /* ===============================
        INIT USER SESSION
@@ -286,17 +350,7 @@ client.on("message", async (message) => {
       user.data.message = text;
 
       let clientId = user.clientId;
-      let adminId = user.assignedAdminId || assignedAdminId;
-
-      if (!adminId) {
-        console.error("❌ No admin account available to assign this user.");
-        await client.sendMessage(
-          from,
-          "We are setting up your account. Please try again later."
-        );
-        delete users[from];
-        return;
-      }
+      const adminId = user.assignedAdminId || assignedAdminId;
 
       // INSERT CLIENT IF NEW
       if (!user.isReturningUser) {

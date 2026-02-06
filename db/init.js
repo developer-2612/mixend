@@ -134,6 +134,35 @@ async function tableExists(connection, tableName) {
   return rows.length > 0;
 }
 
+async function columnExists(connection, tableName, columnName) {
+  const [rows] = await connection.query(
+    `SELECT COLUMN_NAME
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+    [DB_NAME, tableName, columnName]
+  );
+  return rows.length > 0;
+}
+
+async function ensureAdminWhatsappColumns(connection) {
+  const tableName = "admin_accounts";
+  if (!(await tableExists(connection, tableName))) return;
+
+  const columns = [
+    { name: "whatsapp_number", sql: "ALTER TABLE admin_accounts ADD COLUMN whatsapp_number VARCHAR(20)" },
+    { name: "whatsapp_name", sql: "ALTER TABLE admin_accounts ADD COLUMN whatsapp_name VARCHAR(100)" },
+    { name: "whatsapp_connected_at", sql: "ALTER TABLE admin_accounts ADD COLUMN whatsapp_connected_at DATETIME" },
+  ];
+
+  for (const column of columns) {
+    const exists = await columnExists(connection, tableName, column.name);
+    if (!exists) {
+      console.log(`📝 Adding column '${column.name}' to admin_accounts...`);
+      await connection.query(column.sql);
+    }
+  }
+}
+
 export async function initDatabase() {
   try {
     // 1️⃣ connect without database first
@@ -172,6 +201,9 @@ export async function initDatabase() {
             status ENUM('active', 'inactive') DEFAULT 'active',
             parent_admin_id INT,
             last_login DATETIME,
+            whatsapp_number VARCHAR(20),
+            whatsapp_name VARCHAR(100),
+            whatsapp_connected_at DATETIME,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (parent_admin_id) REFERENCES admin_accounts(id),
@@ -308,6 +340,7 @@ export async function initDatabase() {
       console.log(`✅ Tables created: ${createdCount}/${tables.length}`);
     }
 
+    await ensureAdminWhatsappColumns(connection);
     await ensureDefaultSuperAdmin(connection);
     console.log("✅ Database ready and verified");
 

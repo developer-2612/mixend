@@ -17,8 +17,10 @@ function normalizeSchedule(value) {
 
 export async function GET() {
   try {
-    await requireAuth();
-    const broadcasts = await getAllBroadcasts();
+    const authUser = await requireAuth();
+    const broadcasts = await getAllBroadcasts(
+      authUser.admin_tier === 'super_admin' ? null : authUser.id
+    );
     return Response.json({ success: true, data: broadcasts });
   } catch (error) {
     if (error.status === 401) {

@@ -3,8 +3,10 @@ import { createTemplate, getAllTemplates } from '../../../lib/db-helpers';
 
 export async function GET() {
   try {
-    await requireAuth();
-    const templates = await getAllTemplates();
+    const authUser = await requireAuth();
+    const templates = await getAllTemplates(
+      authUser.admin_tier === 'super_admin' ? null : authUser.id
+    );
     return Response.json({ success: true, data: templates });
   } catch (error) {
     if (error.status === 401) {

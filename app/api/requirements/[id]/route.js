@@ -5,7 +5,7 @@ const ALLOWED_STATUSES = new Set(['pending', 'in_progress', 'completed']);
 
 export async function PATCH(request, context) {
   try {
-    await requireAuth();
+    const authUser = await requireAuth();
     const params = await context.params;
     const requirementId = Number(params?.id);
     if (!Number.isFinite(requirementId)) {
@@ -18,7 +18,11 @@ export async function PATCH(request, context) {
       return Response.json({ success: false, error: 'Invalid status' }, { status: 400 });
     }
 
-    const updated = await updateRequirementStatus(requirementId, status);
+    const updated = await updateRequirementStatus(
+      requirementId,
+      status,
+      authUser.admin_tier === 'super_admin' ? null : authUser.id
+    );
     if (!updated) {
       return Response.json({ success: false, error: 'Requirement not found' }, { status: 404 });
     }

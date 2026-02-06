@@ -9,13 +9,17 @@ function mapRole(tier) {
 
 export async function GET() {
   try {
-    await requireAuth();
+    const authUser = await requireAuth();
     const team = await getTeamMembers();
-    const normalized = team.map((member) => ({
+    const scopedTeam =
+      authUser.admin_tier === 'super_admin'
+        ? team
+        : team.filter((member) => member.id === authUser.id);
+    const normalizedScoped = scopedTeam.map((member) => ({
       ...member,
       role: mapRole(member.admin_tier),
     }));
-    return Response.json({ success: true, data: normalized });
+    return Response.json({ success: true, data: normalizedScoped });
   } catch (error) {
     if (error.status === 401) {
       return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });

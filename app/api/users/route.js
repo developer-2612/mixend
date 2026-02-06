@@ -1,10 +1,12 @@
-import { getAllUsers, getUserById } from '../../../lib/db-helpers';
+import { getAllUsers } from '../../../lib/db-helpers';
 import { requireAuth } from '../../../lib/auth-server';
 
 export async function GET(req) {
   try {
-    await requireAuth();
-    const users = await getAllUsers();
+    const authUser = await requireAuth();
+    const users = await getAllUsers(
+      authUser.admin_tier === 'super_admin' ? null : authUser.id
+    );
     return Response.json({ success: true, data: users });
   } catch (error) {
     if (error.status === 401) {

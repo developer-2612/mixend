@@ -301,6 +301,10 @@ img, video {
   right: 0;
 }
 
+.right-3 {
+  right: .75rem;
+}
+
 .top-0 {
   top: 0;
 }
@@ -1106,6 +1110,10 @@ img, video {
   padding-left: 2.5rem;
 }
 
+.pr-12 {
+  padding-right: 3rem;
+}
+
 .pr-4 {
   padding-right: 1rem;
 }
@@ -1648,6 +1656,11 @@ button {
 .hover\:text-aa-dark-blue:hover {
   --tw-text-opacity: 1;
   color: rgb(10 31 68 / var(--tw-text-opacity, 1));
+}
+
+.hover\:text-gray-600:hover {
+  --tw-text-opacity: 1;
+  color: rgb(75 85 99 / var(--tw-text-opacity, 1));
 }
 
 .hover\:text-gray-700:hover {

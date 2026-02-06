@@ -3,8 +3,10 @@ import { requireAuth } from '../../../lib/auth-server';
 
 export async function GET(req) {
   try {
-    await requireAuth();
-    const messages = await getAllMessages();
+    const authUser = await requireAuth();
+    const messages = await getAllMessages(
+      authUser.admin_tier === 'super_admin' ? null : authUser.id
+    );
     return Response.json({ success: true, data: messages });
   } catch (error) {
     if (error.status === 401) {

@@ -6,6 +6,8 @@ export async function POST(request) {
   try {
     const { email, password } = await request.json();
     const identifier = (email || '').trim();
+    const identifierLower = identifier.toLowerCase();
+    const phoneDigits = identifier.replace(/\D/g, '');
 
     if (!identifier || !password) {
       return NextResponse.json(
@@ -18,12 +20,19 @@ export async function POST(request) {
 
     try {
       const idValue = Number.isFinite(Number(identifier)) ? Number(identifier) : -1;
+      const phoneCandidates = Array.from(
+        new Set([identifier, phoneDigits].filter(Boolean))
+      );
+      const phoneClause = phoneCandidates.length
+        ? ` OR phone IN (${phoneCandidates.map(() => '?').join(', ')})`
+        : '';
+
       const [users] = await connection.execute(
         `SELECT id, name, email, phone, password_hash, admin_tier, status
          FROM admin_accounts
-         WHERE email = ? OR phone = ? OR id = ?
+         WHERE LOWER(email) = ?${phoneClause} OR id = ?
          LIMIT 1`,
-        [identifier, identifier, idValue]
+        [identifierLower, ...phoneCandidates, idValue]
       );
 
       if (!users || users.length === 0) {

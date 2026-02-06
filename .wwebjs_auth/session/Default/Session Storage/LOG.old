@@ -1,2 +1,3 @@
-2026/02/06-10:18:22.981 c527 Creating DB /var/www/html/mex-end/.wwebjs_auth/session/Default/Session Storage since it was missing.
-2026/02/06-10:18:22.987 c527 Reusing MANIFEST /var/www/html/mex-end/.wwebjs_auth/session/Default/Session Storage/MANIFEST-000001
+2026/02/06-12:16:07.702 152d5 Reusing MANIFEST /var/www/html/mex-end/.wwebjs_auth/session/Default/Session Storage/MANIFEST-000001
+2026/02/06-12:16:07.703 152d5 Recovering log #3
+2026/02/06-12:16:07.703 152d5 Reusing old log /var/www/html/mex-end/.wwebjs_auth/session/Default/Session Storage/000003.log 

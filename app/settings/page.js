@@ -17,7 +17,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 const WHATSAPP_API_BASE =
-  process.env.NEXT_PUBLIC_WHATSAPP_API_BASE || 'http://localhost:4000';
+  process.env.NEXT_PUBLIC_WHATSAPP_API_BASE || 'http://localhost:3001';
 const WHATSAPP_SOCKET_URL =
   process.env.NEXT_PUBLIC_WHATSAPP_SOCKET_URL || WHATSAPP_API_BASE;
 
@@ -46,8 +46,8 @@ export default function SettingsPage() {
   const [passwordStatus, setPasswordStatus] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [whatsappConfig, setWhatsappConfig] = useState({
-    phone: '+91-9876543210',
-    businessName: 'AlgoAura Solutions',
+    phone: '',
+    businessName: '',
     category: 'Technology',
   });
 
@@ -83,6 +83,13 @@ export default function SettingsPage() {
           email: data.data?.email || '',
           phone: data.data?.phone || '',
         });
+        if (data.data?.whatsapp_number || data.data?.whatsapp_name) {
+          setWhatsappConfig((prev) => ({
+            ...prev,
+            phone: data.data?.whatsapp_number || prev.phone,
+            businessName: data.data?.whatsapp_name || prev.businessName,
+          }));
+        }
       } catch (error) {
         console.error('Failed to load profile:', error);
         setProfileError(error.message);
@@ -111,9 +118,15 @@ export default function SettingsPage() {
         const payload = await response.json();
         if (!isMounted) return;
         const nextStatus = payload?.status || 'idle';
-        setWhatsappStatus(nextStatus);
-        setWhatsappConnected(nextStatus === 'connected');
-        if (nextStatus === 'connected') {
+        const isCurrentAdmin =
+          payload?.activeAdminId && user?.id && payload.activeAdminId === user.id;
+        const derivedStatus =
+          nextStatus === 'connected' && !isCurrentAdmin
+            ? 'connected_other'
+            : nextStatus;
+        setWhatsappStatus(derivedStatus);
+        setWhatsappConnected(derivedStatus === 'connected');
+        if (derivedStatus === 'connected') {
           setWhatsappQr('');
         } else if (payload?.qrImage) {
           setWhatsappQr(payload.qrImage);
@@ -131,9 +144,15 @@ export default function SettingsPage() {
 
     socket.on('whatsapp:status', (payload) => {
       const nextStatus = payload?.status || 'idle';
-      setWhatsappStatus(nextStatus);
-      setWhatsappConnected(nextStatus === 'connected');
-      if (nextStatus === 'connected') {
+      const isCurrentAdmin =
+        payload?.activeAdminId && user?.id && payload.activeAdminId === user.id;
+      const derivedStatus =
+        nextStatus === 'connected' && !isCurrentAdmin
+          ? 'connected_other'
+          : nextStatus;
+      setWhatsappStatus(derivedStatus);
+      setWhatsappConnected(derivedStatus === 'connected');
+      if (derivedStatus === 'connected') {
         setWhatsappQr('');
       } else if (payload?.qrImage) {
         setWhatsappQr(payload.qrImage);
@@ -154,13 +173,15 @@ export default function SettingsPage() {
       isMounted = false;
       socket.disconnect();
     };
-  }, []);
+  }, [user?.id]);
 
   const handleStartWhatsApp = async () => {
     try {
       setWhatsappActionStatus('');
       const response = await fetch(`${WHATSAPP_API_BASE}/whatsapp/start`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId: user?.id }),
       });
       if (!response.ok) {
         throw new Error('Failed to start WhatsApp');
@@ -196,7 +217,9 @@ export default function SettingsPage() {
   const isWhatsappPending = whatsappStatus === 'starting' || whatsappStatus === 'qr';
   const whatsappTone = whatsappConnected ? 'green' : isWhatsappPending ? 'amber' : 'red';
   const whatsappStatusLabel = whatsappConnected
-    ? 'Connected'
+    ? 'Configured'
+    : whatsappStatus === 'connected_other'
+    ? 'Connected (Other Admin)'
     : whatsappStatus === 'starting'
     ? 'Starting'
     : whatsappStatus === 'qr'
@@ -205,7 +228,9 @@ export default function SettingsPage() {
     ? 'Auth Failed'
     : 'Disconnected';
   const whatsappStatusMessage = whatsappConnected
-    ? 'WhatsApp client is connected and active.'
+    ? 'WhatsApp is connected and configured for this admin.'
+    : whatsappStatus === 'connected_other'
+    ? 'WhatsApp is connected under a different admin account.'
     : whatsappStatus === 'starting'
     ? 'Starting WhatsApp client. Please wait...'
     : whatsappStatus === 'qr'
@@ -556,13 +581,15 @@ export default function SettingsPage() {
                   label="Phone Number"
                   value={whatsappConfig.phone}
                   onChange={(event) => setWhatsappConfig((prev) => ({ ...prev, phone: event.target.value }))}
+                  placeholder="Not connected"
                   disabled
                 />
                 <Input
                   label="Business Name"
                   value={whatsappConfig.businessName}
                   onChange={(event) => setWhatsappConfig((prev) => ({ ...prev, businessName: event.target.value }))}
-                  disabled={!whatsappConnected}
+                  placeholder="Not connected"
+                  disabled
                 />
                 <Input
                   label="Business Category"
@@ -578,13 +605,10 @@ export default function SettingsPage() {
                     disabled={whatsappConnected || whatsappStatus === 'starting'}
                   >
                     {whatsappConnected
-                      ? 'Connected'
+                      ? 'Configured'
                       : whatsappStatus === 'starting'
                       ? 'Starting...'
                       : 'Connect WhatsApp'}
-                  </Button>
-                  <Button variant="primary" disabled={!whatsappConnected}>
-                    Update Settings
                   </Button>
                   <Button
                     variant="outline"

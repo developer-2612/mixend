@@ -18,9 +18,23 @@ const DEFAULT_PORT = 3001;
 const BASE_PORT = Number(process.env.PORT) || DEFAULT_PORT;
 const FRONTEND_ORIGIN =
   process.env.FRONTEND_ORIGIN || "http://localhost:3000";
+const FRONTEND_ORIGINS = new Set(
+  (process.env.FRONTEND_ORIGINS || `${FRONTEND_ORIGIN},http://localhost:3001`)
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+);
+
+const resolveOrigin = (origin) => {
+  if (!origin) return FRONTEND_ORIGIN;
+  if (FRONTEND_ORIGINS.has(origin)) return origin;
+  return FRONTEND_ORIGIN;
+};
 
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", FRONTEND_ORIGIN);
+  const origin = resolveOrigin(req.headers.origin);
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
   if (req.method === "OPTIONS") {
@@ -40,7 +54,8 @@ app.get("/whatsapp/status", (req, res) => {
 
 app.post("/whatsapp/start", async (req, res) => {
   try {
-    const result = await startWhatsApp();
+    const adminId = Number(req.body?.adminId);
+    const result = await startWhatsApp(Number.isFinite(adminId) ? adminId : undefined);
     res.json(result);
   } catch (err) {
     console.error("❌ Failed to start WhatsApp:", err);
@@ -61,7 +76,13 @@ app.post("/whatsapp/disconnect", async (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: FRONTEND_ORIGIN,
+    origin: (origin, callback) => {
+      if (!origin || FRONTEND_ORIGINS.has(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("Not allowed by CORS"));
+    },
     methods: ["GET", "POST"],
   },
 });
@@ -75,10 +96,12 @@ io.on("connection", (socket) => {
 });
 
 whatsappEvents.on("status", (nextStatus) => {
+  const state = getWhatsAppState();
   io.emit("whatsapp:status", {
     status: nextStatus,
     ready: nextStatus === "connected",
-    qrImage: getWhatsAppState().qrImage,
+    qrImage: state.qrImage,
+    activeAdminId: state.activeAdminId,
   });
 });
 

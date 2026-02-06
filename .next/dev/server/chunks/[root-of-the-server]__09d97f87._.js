@@ -186,112 +186,169 @@ __turbopack_context__.s([
 ]);
 var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/db.js [app-route] (ecmascript)");
 ;
-async function getAllUsers() {
+async function getAllUsers(adminId = null) {
     const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
     try {
+        const params = [];
+        let whereClause = '';
+        if (adminId) {
+            whereClause = 'WHERE u.assigned_admin_id = ?';
+            params.push(adminId);
+        }
         const [users] = await connection.query(`
-      SELECT u.*, a.name as admin_name 
-      FROM users u 
-      LEFT JOIN admin_accounts a ON u.assigned_admin_id = a.id
-      ORDER BY u.created_at DESC
-    `);
+        SELECT u.*, a.name as admin_name
+        FROM users u
+        LEFT JOIN admin_accounts a ON u.assigned_admin_id = a.id
+        ${whereClause}
+        ORDER BY u.created_at DESC
+      `, params);
         return users;
     } finally{
         connection.release();
     }
 }
-async function getUserById(userId) {
+async function getUserById(userId, adminId = null) {
     const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
     try {
-        const [user] = await connection.query(`
-      SELECT u.*, a.name as admin_name 
-      FROM users u 
-      LEFT JOIN admin_accounts a ON u.assigned_admin_id = a.id
-      WHERE u.id = ?
-    `, [
+        const params = [
             userId
-        ]);
+        ];
+        let whereClause = 'WHERE u.id = ?';
+        if (adminId) {
+            whereClause += ' AND u.assigned_admin_id = ?';
+            params.push(adminId);
+        }
+        const [user] = await connection.query(`
+        SELECT u.*, a.name as admin_name
+        FROM users u
+        LEFT JOIN admin_accounts a ON u.assigned_admin_id = a.id
+        ${whereClause}
+      `, params);
         return user[0];
     } finally{
         connection.release();
     }
 }
-async function getAllMessages() {
+async function getAllMessages(adminId = null) {
     const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
     try {
+        const params = [];
+        let whereClause = '';
+        if (adminId) {
+            whereClause = 'WHERE m.admin_id = ?';
+            params.push(adminId);
+        }
         const [messages] = await connection.query(`
-      SELECT m.*, u.name as user_name, u.phone, a.name as admin_name 
-      FROM messages m 
-      LEFT JOIN users u ON m.user_id = u.id 
-      LEFT JOIN admin_accounts a ON m.admin_id = a.id
-      ORDER BY m.created_at DESC
-    `);
+        SELECT m.*, u.name as user_name, u.phone, a.name as admin_name
+        FROM messages m
+        LEFT JOIN users u ON m.user_id = u.id
+        LEFT JOIN admin_accounts a ON m.admin_id = a.id
+        ${whereClause}
+        ORDER BY m.created_at DESC
+      `, params);
         return messages;
     } finally{
         connection.release();
     }
 }
-async function getMessagesForUser(userId) {
+async function getMessagesForUser(userId, adminId = null) {
     const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
     try {
-        const [messages] = await connection.query(`
-      SELECT m.*, u.name as user_name, a.name as admin_name 
-      FROM messages m 
-      LEFT JOIN users u ON m.user_id = u.id 
-      LEFT JOIN admin_accounts a ON m.admin_id = a.id
-      WHERE m.user_id = ?
-      ORDER BY m.created_at DESC
-    `, [
+        const params = [
             userId
-        ]);
+        ];
+        let whereClause = 'WHERE m.user_id = ?';
+        if (adminId) {
+            whereClause += ' AND m.admin_id = ?';
+            params.push(adminId);
+        }
+        const [messages] = await connection.query(`
+        SELECT m.*, u.name as user_name, a.name as admin_name
+        FROM messages m
+        LEFT JOIN users u ON m.user_id = u.id
+        LEFT JOIN admin_accounts a ON m.admin_id = a.id
+        ${whereClause}
+        ORDER BY m.created_at DESC
+      `, params);
         return messages;
     } finally{
         connection.release();
     }
 }
-async function getAllRequirements() {
+async function getAllRequirements(adminId = null) {
     const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
     try {
+        const params = [];
+        let whereClause = '';
+        if (adminId) {
+            whereClause = 'WHERE u.assigned_admin_id = ?';
+            params.push(adminId);
+        }
         const [requirements] = await connection.query(`
-      SELECT r.*, u.name, u.phone 
-      FROM user_requirements r 
-      LEFT JOIN users u ON r.user_id = u.id
-      ORDER BY r.created_at DESC
-    `);
+        SELECT r.*, u.name, u.phone
+        FROM user_requirements r
+        LEFT JOIN users u ON r.user_id = u.id
+        ${whereClause}
+        ORDER BY r.created_at DESC
+      `, params);
         return requirements;
     } finally{
         connection.release();
     }
 }
-async function updateRequirementStatus(requirementId, status) {
+async function updateRequirementStatus(requirementId, status, adminId = null) {
     const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
     try {
-        await connection.query(`UPDATE user_requirements SET status = ? WHERE id = ?`, [
-            status,
+        if (adminId) {
+            await connection.query(`UPDATE user_requirements r
+         JOIN users u ON r.user_id = u.id
+         SET r.status = ?
+         WHERE r.id = ? AND u.assigned_admin_id = ?`, [
+                status,
+                requirementId,
+                adminId
+            ]);
+        } else {
+            await connection.query(`UPDATE user_requirements SET status = ? WHERE id = ?`, [
+                status,
+                requirementId
+            ]);
+        }
+        const params = [
             requirementId
-        ]);
-        const [rows] = await connection.query(`SELECT r.*, u.name, u.phone 
-       FROM user_requirements r 
+        ];
+        let whereClause = 'WHERE r.id = ?';
+        if (adminId) {
+            whereClause += ' AND u.assigned_admin_id = ?';
+            params.push(adminId);
+        }
+        const [rows] = await connection.query(`SELECT r.*, u.name, u.phone
+       FROM user_requirements r
        LEFT JOIN users u ON r.user_id = u.id
-       WHERE r.id = ?
-       LIMIT 1`, [
-            requirementId
-        ]);
+       ${whereClause}
+       LIMIT 1`, params);
         return rows[0] || null;
     } finally{
         connection.release();
     }
 }
-async function getAllNeeds() {
+async function getAllNeeds(adminId = null) {
     const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
     try {
+        const params = [];
+        let whereClause = '';
+        if (adminId) {
+            whereClause = 'WHERE u.assigned_admin_id = ?';
+            params.push(adminId);
+        }
         const [needs] = await connection.query(`
-      SELECT n.*, u.name, u.phone, a.name as assigned_admin_name 
-      FROM user_needs n 
-      LEFT JOIN users u ON n.user_id = u.id 
-      LEFT JOIN admin_accounts a ON n.assigned_to = a.id
-      ORDER BY n.created_at DESC
-    `);
+        SELECT n.*, u.name, u.phone, a.name as assigned_admin_name
+        FROM user_needs n
+        LEFT JOIN users u ON n.user_id = u.id
+        LEFT JOIN admin_accounts a ON n.assigned_to = a.id
+        ${whereClause}
+        ORDER BY n.created_at DESC
+      `, params);
         return needs;
     } finally{
         connection.release();
@@ -331,16 +388,37 @@ async function addMessage(user_id, admin_id, message_text, message_type) {
         connection.release();
     }
 }
-async function getDashboardStats() {
+async function getDashboardStats(adminId = null) {
     const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
     try {
+        if (!adminId) {
+            const [stats] = await connection.query(`
+        SELECT 
+          (SELECT COUNT(*) FROM users) as total_users,
+          (SELECT COUNT(*) FROM messages WHERE message_type = 'incoming') as incoming_messages,
+          (SELECT COUNT(*) FROM user_requirements WHERE status = 'in_progress') as active_requirements,
+          (SELECT COUNT(*) FROM user_needs WHERE status = 'open') as open_needs
+      `);
+            return stats[0];
+        }
         const [stats] = await connection.query(`
-      SELECT 
-        (SELECT COUNT(*) FROM users) as total_users,
-        (SELECT COUNT(*) FROM messages WHERE message_type = 'incoming') as incoming_messages,
-        (SELECT COUNT(*) FROM user_requirements WHERE status = 'in_progress') as active_requirements,
-        (SELECT COUNT(*) FROM user_needs WHERE status = 'open') as open_needs
-    `);
+        SELECT
+          (SELECT COUNT(*) FROM users WHERE assigned_admin_id = ?) as total_users,
+          (SELECT COUNT(*) FROM messages WHERE message_type = 'incoming' AND admin_id = ?) as incoming_messages,
+          (SELECT COUNT(*)
+           FROM user_requirements r
+           JOIN users u ON r.user_id = u.id
+           WHERE r.status = 'in_progress' AND u.assigned_admin_id = ?) as active_requirements,
+          (SELECT COUNT(*)
+           FROM user_needs n
+           JOIN users u ON n.user_id = u.id
+           WHERE n.status = 'open' AND u.assigned_admin_id = ?) as open_needs
+      `, [
+            adminId,
+            adminId,
+            adminId,
+            adminId
+        ]);
         return stats[0];
     } finally{
         connection.release();
@@ -349,7 +427,9 @@ async function getDashboardStats() {
 async function getAdminById(adminId) {
     const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
     try {
-        const [rows] = await connection.query(`SELECT id, name, email, phone, admin_tier, status, created_at, updated_at
+        const [rows] = await connection.query(`SELECT id, name, email, phone, admin_tier, status,
+              whatsapp_number, whatsapp_name, whatsapp_connected_at,
+              created_at, updated_at
        FROM admin_accounts
        WHERE id = ?
        LIMIT 1`, [
@@ -392,15 +472,22 @@ function parseTemplateVariables(value) {
         return [];
     }
 }
-async function getAllBroadcasts() {
+async function getAllBroadcasts(adminId = null) {
     const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
     try {
+        const params = [];
+        let whereClause = '';
+        if (adminId) {
+            whereClause = 'WHERE b.created_by = ?';
+            params.push(adminId);
+        }
         const [rows] = await connection.query(`
-      SELECT b.*, a.name as created_by_name
-      FROM broadcasts b
-      LEFT JOIN admin_accounts a ON b.created_by = a.id
-      ORDER BY b.created_at DESC
-    `);
+        SELECT b.*, a.name as created_by_name
+        FROM broadcasts b
+        LEFT JOIN admin_accounts a ON b.created_by = a.id
+        ${whereClause}
+        ORDER BY b.created_at DESC
+      `, params);
         return rows;
     } finally{
         connection.release();
@@ -439,15 +526,22 @@ async function createBroadcast({ title, message, targetAudienceType, scheduledAt
         connection.release();
     }
 }
-async function getAllTemplates() {
+async function getAllTemplates(adminId = null) {
     const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
     try {
+        const params = [];
+        let whereClause = '';
+        if (adminId) {
+            whereClause = 'WHERE t.created_by = ?';
+            params.push(adminId);
+        }
         const [rows] = await connection.query(`
-      SELECT t.*, a.name as created_by_name
-      FROM message_templates t
-      LEFT JOIN admin_accounts a ON t.created_by = a.id
-      ORDER BY t.created_at DESC
-    `);
+        SELECT t.*, a.name as created_by_name
+        FROM message_templates t
+        LEFT JOIN admin_accounts a ON t.created_by = a.id
+        ${whereClause}
+        ORDER BY t.created_at DESC
+      `, params);
         return rows.map((row)=>({
                 ...row,
                 variables: parseTemplateVariables(row.variables_json)
@@ -518,18 +612,69 @@ async function getTeamMembers() {
         connection.release();
     }
 }
-async function getReportOverview(startDate) {
+async function getReportOverview(startDate, adminId = null) {
     const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
     try {
+        const messageParams = [
+            startDate
+        ];
+        let messageWhere = 'WHERE created_at >= ?';
+        if (adminId) {
+            messageWhere += ' AND admin_id = ?';
+            messageParams.push(adminId);
+        }
         const [messageStats] = await connection.query(`
         SELECT DATE(created_at) as date, COUNT(*) as count
         FROM messages
-        WHERE created_at >= ?
+        ${messageWhere}
         GROUP BY DATE(created_at)
         ORDER BY DATE(created_at)
-      `, [
-            startDate
-        ]);
+      `, messageParams);
+        if (adminId) {
+            const [leadStats] = await connection.query(`
+          SELECT r.status, COUNT(*) as count
+          FROM user_requirements r
+          JOIN users u ON r.user_id = u.id
+          WHERE u.assigned_admin_id = ?
+          GROUP BY r.status
+        `, [
+                adminId
+            ]);
+            const [agentPerformance] = await connection.query(`
+          SELECT
+            a.id,
+            a.name,
+            a.admin_tier,
+            a.status,
+            SUM(CASE WHEN m.message_type = 'outgoing' THEN 1 ELSE 0 END) AS messages_sent,
+            COUNT(DISTINCT CASE
+              WHEN m.created_at >= (NOW() - INTERVAL 7 DAY) THEN m.user_id
+              ELSE NULL
+            END) AS active_chats
+          FROM admin_accounts a
+          LEFT JOIN messages m ON m.admin_id = a.id
+          WHERE a.id = ?
+          GROUP BY a.id
+        `, [
+                adminId
+            ]);
+            const [topCampaigns] = await connection.query(`
+          SELECT id, title, status, sent_count, delivered_count, created_at
+          FROM broadcasts
+          WHERE created_by = ?
+          ORDER BY sent_count DESC, created_at DESC
+          LIMIT 5
+        `, [
+                adminId
+            ]);
+            return {
+                messageStats,
+                leadStats,
+                agentPerformance,
+                topCampaigns,
+                revenueSources: []
+            };
+        }
         const [leadStats] = await connection.query(`
         SELECT status, COUNT(*) as count
         FROM user_requirements
@@ -668,8 +813,8 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$auth$2d$server$2e$js_
 ;
 async function GET(req) {
     try {
-        await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$auth$2d$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["requireAuth"])();
-        const users = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2d$helpers$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getAllUsers"])();
+        const authUser = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$auth$2d$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["requireAuth"])();
+        const users = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2d$helpers$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getAllUsers"])(authUser.admin_tier === 'super_admin' ? null : authUser.id);
         return Response.json({
             success: true,
             data: users

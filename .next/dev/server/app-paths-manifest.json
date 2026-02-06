@@ -1,19 +1,16 @@
 {
-  "/api/auth/login/route": "app/api/auth/login/route.js",
-  "/api/auth/logout/route": "app/api/auth/logout/route.js",
   "/api/auth/me/route": "app/api/auth/me/route.js",
   "/api/dashboard/stats/route": "app/api/dashboard/stats/route.js",
   "/api/messages/route": "app/api/messages/route.js",
-  "/api/profile/password/route": "app/api/profile/password/route.js",
   "/api/profile/route": "app/api/profile/route.js",
   "/api/reports/overview/route": "app/api/reports/overview/route.js",
   "/api/requirements/route": "app/api/requirements/route.js",
   "/api/users/route": "app/api/users/route.js",
+  "/contacts/page": "app/contacts/page.js",
   "/dashboard/page": "app/dashboard/page.js",
   "/inbox/page": "app/inbox/page.js",
   "/leads/page": "app/leads/page.js",
-  "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
   "/reports/page": "app/reports/page.js",
-  "/settings/page": "app/settings/page.js",
-  "/signup/page": "app/signup/page.js"
+  "/settings/page": "app/settings/page.js"
 }

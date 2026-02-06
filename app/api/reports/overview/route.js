@@ -14,11 +14,14 @@ function resolveRange(range) {
 
 export async function GET(request) {
   try {
-    await requireAuth();
+    const authUser = await requireAuth();
     const { searchParams } = new URL(request.url);
     const range = searchParams.get('range') || '7days';
     const startDate = resolveRange(range);
-    const overview = await getReportOverview(startDate);
+    const overview = await getReportOverview(
+      startDate,
+      authUser.admin_tier === 'super_admin' ? null : authUser.id
+    );
     return Response.json({ success: true, data: overview });
   } catch (error) {
     if (error.status === 401) {
