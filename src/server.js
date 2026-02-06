@@ -25,9 +25,12 @@ const FRONTEND_ORIGINS = new Set(
     .filter(Boolean)
 );
 
+const isLocalhostOrigin = (origin) =>
+  /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+
 const resolveOrigin = (origin) => {
   if (!origin) return FRONTEND_ORIGIN;
-  if (FRONTEND_ORIGINS.has(origin)) return origin;
+  if (FRONTEND_ORIGINS.has(origin) || isLocalhostOrigin(origin)) return origin;
   return FRONTEND_ORIGIN;
 };
 
@@ -37,6 +40,7 @@ app.use((req, res, next) => {
   res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
   if (req.method === "OPTIONS") {
     res.status(204).end();
     return;
@@ -77,7 +81,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
-      if (!origin || FRONTEND_ORIGINS.has(origin)) {
+      if (!origin || FRONTEND_ORIGINS.has(origin) || isLocalhostOrigin(origin)) {
         callback(null, true);
         return;
       }

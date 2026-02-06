@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import Card from '../components/common/Card.jsx';
 import Button from '../components/common/Button.jsx';
@@ -106,39 +106,38 @@ export default function SettingsPage() {
     loadProfile();
   }, [authLoading, user]);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchStatus = async () => {
-      try {
-        const response = await fetch(`${WHATSAPP_API_BASE}/whatsapp/status`);
-        if (!response.ok) {
-          throw new Error('Failed to load WhatsApp status');
-        }
-        const payload = await response.json();
-        if (!isMounted) return;
-        const nextStatus = payload?.status || 'idle';
-        const isCurrentAdmin =
-          payload?.activeAdminId && user?.id && payload.activeAdminId === user.id;
-        const derivedStatus =
-          nextStatus === 'connected' && !isCurrentAdmin
-            ? 'connected_other'
-            : nextStatus;
-        setWhatsappStatus(derivedStatus);
-        setWhatsappConnected(derivedStatus === 'connected');
-        if (derivedStatus === 'connected') {
-          setWhatsappQr('');
-        } else if (payload?.qrImage) {
-          setWhatsappQr(payload.qrImage);
-        }
-      } catch (error) {
-        if (isMounted) {
-          setWhatsappActionStatus('Unable to fetch WhatsApp status.');
-        }
+  const fetchWhatsAppStatus = useCallback(async (isMountedRef = { current: true }) => {
+    try {
+      const response = await fetch(`${WHATSAPP_API_BASE}/whatsapp/status`);
+      if (!response.ok) {
+        throw new Error('Failed to load WhatsApp status');
       }
-    };
+      const payload = await response.json();
+      if (!isMountedRef.current) return;
+      const nextStatus = payload?.status || 'idle';
+      const isCurrentAdmin =
+        payload?.activeAdminId && user?.id && payload.activeAdminId === user.id;
+      const derivedStatus =
+        nextStatus === 'connected' && !isCurrentAdmin
+          ? 'connected_other'
+          : nextStatus;
+      setWhatsappStatus(derivedStatus);
+      setWhatsappConnected(derivedStatus === 'connected');
+      if (derivedStatus === 'connected') {
+        setWhatsappQr('');
+      } else if (payload?.qrImage) {
+        setWhatsappQr(payload.qrImage);
+      }
+    } catch (error) {
+      if (isMountedRef.current) {
+        setWhatsappActionStatus('Unable to fetch WhatsApp status.');
+      }
+    }
+  }, [user?.id]);
 
-    fetchStatus();
+  useEffect(() => {
+    const isMountedRef = { current: true };
+    fetchWhatsAppStatus(isMountedRef);
 
     const socket = io(WHATSAPP_SOCKET_URL);
 
@@ -170,10 +169,10 @@ export default function SettingsPage() {
     });
 
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
       socket.disconnect();
     };
-  }, [user?.id]);
+  }, [fetchWhatsAppStatus, user?.id]);
 
   const handleStartWhatsApp = async () => {
     try {
@@ -186,6 +185,7 @@ export default function SettingsPage() {
       if (!response.ok) {
         throw new Error('Failed to start WhatsApp');
       }
+      await fetchWhatsAppStatus();
     } catch (error) {
       setWhatsappActionStatus(error.message);
     }
@@ -200,6 +200,7 @@ export default function SettingsPage() {
       if (!response.ok) {
         throw new Error('Failed to disconnect WhatsApp');
       }
+      await fetchWhatsAppStatus();
     } catch (error) {
       setWhatsappActionStatus(error.message);
     }
@@ -215,6 +216,7 @@ export default function SettingsPage() {
   ];
 
   const isWhatsappPending = whatsappStatus === 'starting' || whatsappStatus === 'qr';
+  const canDisconnect = whatsappConnected || whatsappStatus === 'connected_other';
   const whatsappTone = whatsappConnected ? 'green' : isWhatsappPending ? 'amber' : 'red';
   const whatsappStatusLabel = whatsappConnected
     ? 'Configured'
@@ -614,7 +616,7 @@ export default function SettingsPage() {
                     variant="outline"
                     className="text-red-600 border-red-600 hover:bg-red-50"
                     onClick={handleDisconnectWhatsApp}
-                    disabled={!whatsappConnected}
+                    disabled={!canDisconnect}
                   >
                     Disconnect
                   </Button>

@@ -1,3 +1,6 @@
-2026/02/06-12:18:14.405 156b4 Reusing MANIFEST /var/www/html/mex-end/.wwebjs_auth/session/Default/Local Storage/leveldb/MANIFEST-000001
-2026/02/06-12:18:14.412 156b4 Recovering log #3
-2026/02/06-12:18:14.412 156b4 Reusing old log /var/www/html/mex-end/.wwebjs_auth/session/Default/Local Storage/leveldb/000003.log 
+2026/02/06-12:29:28.002 1666e Reusing MANIFEST /var/www/html/mex-end/.wwebjs_auth/session/Default/Local Storage/leveldb/MANIFEST-000001
+2026/02/06-12:29:28.008 1666e Recovering log #3
+2026/02/06-12:29:28.010 1666e Reusing old log /var/www/html/mex-end/.wwebjs_auth/session/Default/Local Storage/leveldb/000003.log 
+2026/02/06-12:32:39.268 16670 Level-0 table #5: started
+2026/02/06-12:32:39.270 16670 Level-0 table #5: 24336 bytes OK
+2026/02/06-12:32:39.271 16670 Delete type=0 #3
