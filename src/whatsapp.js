@@ -176,7 +176,7 @@ const delay = (ms) => new Promise((res) => setTimeout(res, ms));
    =============================== */
 const MAIN_MENU_TEXT = [
   "Namaste/Hello 🙏",
-  "I am a helper bot for *ABC Astrology*.",
+  "I am a helper bot for *Neeraj Astrology*.",
   "",
   "How can I help you today? / Aaj aapko kis cheez me madad chahiye?",
   "",
@@ -239,6 +239,9 @@ const PRODUCTS_MENU_TEXT = [
 
 const PRODUCT_DETAILS_PROMPT =
   "Great choice 👍\nPlease share product details (stone name, carat/size, ring/pendant, purpose).\nPrices vary by quality/weight; we will share the best current estimate after details.";
+
+const TWO_MINUTES_MS = 2 * 60 * 1000;
+const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
 
 const SERVICE_OPTIONS = [
   {
@@ -469,8 +472,137 @@ const buildRequirementSummary = ({ user, phone }) => {
   if (user.data.address) lines.push(`Address: ${user.data.address}`);
   if (user.data.altContact) lines.push(`Alt Contact: ${user.data.altContact}`);
   if (user.data.executiveMessage) lines.push(`Message: ${user.data.executiveMessage}`);
+  if (user.data.lastUserMessage) lines.push(`Last User Message: ${user.data.lastUserMessage}`);
 
   return lines.join("\n");
+};
+
+const promptForName = async ({ user, from }) => {
+  await delay(1000);
+  await client.sendMessage(from, "May I know your *name*?");
+  user.step = "ASK_NAME";
+};
+
+const promptForEmail = async ({ user, from }) => {
+  await delay(1000);
+  await client.sendMessage(from, "Could you please share your *email address*?");
+  user.step = "ASK_EMAIL";
+};
+
+const maybeFinalizeLead = async ({ user, from, phone, assignedAdminId }) => {
+  const hasName = Boolean(user.name || user.data.name);
+  const hasEmail = Boolean(user.email || user.data.email);
+
+  if (!hasName) {
+    user.data.pendingFinalize = true;
+    await promptForName({ user, from });
+    return;
+  }
+
+  if (!hasEmail) {
+    user.data.pendingFinalize = true;
+    await promptForEmail({ user, from });
+    return;
+  }
+
+  user.data.message = buildRequirementSummary({ user, phone });
+  await finalizeLead({ user, from, phone, assignedAdminId });
+};
+
+const savePartialLead = async ({ user, phone, assignedAdminId }) => {
+  const adminId = user.assignedAdminId || assignedAdminId;
+  if (!user.clientId) return;
+
+  const summary = buildRequirementSummary({ user, phone });
+  const category = user.data.reason ? `Partial - ${user.data.reason}` : "Partial";
+
+  await db.query(
+    `INSERT INTO messages (user_id, admin_id, message_text, message_type, status)
+     VALUES (?, ?, ?, 'incoming', 'delivered')`,
+    [user.clientId, adminId, summary]
+  );
+
+  await db.query(
+    `INSERT INTO user_requirements (user_id, requirement_text, category, status)
+     VALUES (?, ?, ?, 'pending')`,
+    [user.clientId, summary, category]
+  );
+};
+
+const scheduleIdleSave = ({ user, phone, assignedAdminId }) => {
+  if (user.idleTimer) {
+    clearTimeout(user.idleTimer);
+  }
+
+  const scheduledAt = user.lastUserMessageAt;
+  user.idleTimer = setTimeout(() => {
+    const now = Date.now();
+    if (user.finalized) return;
+    if (user.lastUserMessageAt !== scheduledAt) return;
+
+    user.partialSavedAt = now;
+    user.data.message = buildRequirementSummary({ user, phone });
+    savePartialLead({ user, phone, assignedAdminId }).catch((err) => {
+      console.error("❌ Failed to save partial lead:", err.message);
+    });
+  }, TWO_MINUTES_MS);
+};
+
+const sendResumePrompt = async ({ user, from }) => {
+  switch (user.step) {
+    case "SERVICES_MENU":
+      await client.sendMessage(from, SERVICES_MENU_TEXT);
+      return;
+    case "PRODUCTS_MENU":
+      await client.sendMessage(from, PRODUCTS_MENU_TEXT);
+      return;
+    case "SERVICE_DETAILS": {
+      const serviceOption = SERVICE_OPTIONS.find(
+        (option) => option.label === user.data.serviceType
+      );
+      await client.sendMessage(
+        from,
+        serviceOption?.prompt ||
+          "Please share your service details (DOB, time, place, and concern)."
+      );
+      return;
+    }
+    case "PRODUCT_REQUIREMENTS":
+      await client.sendMessage(from, PRODUCT_DETAILS_PROMPT);
+      return;
+    case "PRODUCT_ADDRESS":
+      await client.sendMessage(
+        from,
+        "Please share your *full delivery address with pin code* (पूरा पता + पिन कोड)."
+      );
+      return;
+    case "PRODUCT_ALT_CONTACT":
+      await client.sendMessage(
+        from,
+        "Alternate contact number (optional). If none, reply *NA*."
+      );
+      return;
+    case "EXECUTIVE_MESSAGE":
+      await client.sendMessage(
+        from,
+        "Sure 👍\nPlease tell us briefly *how we can help you today*."
+      );
+      return;
+    case "ASK_NAME":
+      await client.sendMessage(from, "May I know your *name*?");
+      return;
+    case "ASK_EMAIL":
+      await client.sendMessage(from, "Could you please share your *email address*?");
+      return;
+    case "MENU":
+      await client.sendMessage(
+        from,
+        user.isReturningUser && user.name ? returningMenuText(user.name) : MAIN_MENU_TEXT
+      );
+      return;
+    default:
+      await client.sendMessage(from, MAIN_MENU_TEXT);
+  }
 };
 
 const finalizeLead = async ({ user, from, phone, assignedAdminId }) => {
@@ -479,12 +611,18 @@ const finalizeLead = async ({ user, from, phone, assignedAdminId }) => {
   const displayName = user.name || user.data.name || "Unknown";
   const email = user.email || user.data.email || null;
 
-  if (!user.isReturningUser) {
+  if (!clientId) {
     const [result] = await db.query(
       "INSERT INTO users (name, phone, email, assigned_admin_id) VALUES (?, ?, ?, ?)",
       [displayName, phone, email, adminId]
     );
     clientId = result.insertId;
+  }
+  if (clientId) {
+    await db.query(
+      "UPDATE users SET name = COALESCE(?, name), email = COALESCE(?, email) WHERE id = ?",
+      [displayName !== "Unknown" ? displayName : null, email, clientId]
+    );
   }
 
   const requirementText = user.data.message || buildRequirementSummary({ user, phone });
@@ -515,6 +653,10 @@ const finalizeLead = async ({ user, from, phone, assignedAdminId }) => {
     `Thank you ${displayName} 😊\nOur team will contact you shortly.`
   );
 
+  if (user.idleTimer) {
+    clearTimeout(user.idleTimer);
+  }
+  user.finalized = true;
   delete users[from];
 };
 
@@ -549,8 +691,8 @@ client.on("message", async (message) => {
       [phone]
     );
 
-    const isReturningUser = rows.length > 0;
-    const existingUser = isReturningUser ? rows[0] : null;
+    let isReturningUser = rows.length > 0;
+    let existingUser = isReturningUser ? rows[0] : null;
     let assignedAdminId = existingUser?.assigned_admin_id || activeAdminId;
     if (existingUser && existingUser.assigned_admin_id !== activeAdminId) {
       assignedAdminId = activeAdminId;
@@ -558,6 +700,34 @@ client.on("message", async (message) => {
         "UPDATE users SET assigned_admin_id = ? WHERE id = ?",
         [activeAdminId, existingUser.id]
       );
+    }
+
+    if (!isReturningUser) {
+      try {
+        const [result] = await db.query(
+          "INSERT INTO users (phone, assigned_admin_id) VALUES (?, ?)",
+          [phone, assignedAdminId]
+        );
+        existingUser = {
+          id: result.insertId,
+          name: null,
+          email: null,
+          assigned_admin_id: assignedAdminId,
+        };
+      } catch (err) {
+        if (err.code === "ER_DUP_ENTRY") {
+          const [freshRows] = await db.query(
+            "SELECT id, name, email, assigned_admin_id FROM users WHERE phone = ?",
+            [phone]
+          );
+          if (freshRows.length > 0) {
+            existingUser = freshRows[0];
+            isReturningUser = true;
+          }
+        } else {
+          throw err;
+        }
+      }
     }
 
     /* ===============================
@@ -568,14 +738,60 @@ client.on("message", async (message) => {
         step: isReturningUser ? "MENU" : "START",
         data: {},
         isReturningUser,
-        clientId: isReturningUser ? existingUser.id : null,
+        clientId: existingUser?.id || null,
         name: isReturningUser ? existingUser.name : null,
         email: isReturningUser ? existingUser.email : null,
         assignedAdminId,
+        greetedThisSession: !isReturningUser,
+        resumeStep: null,
+        awaitingResumeDecision: false,
+        lastUserMessageAt: null,
+        partialSavedAt: null,
+        finalized: false,
+        idleTimer: null,
       };
     }
 
     const user = users[from];
+
+    const now = Date.now();
+    const lastMessageAt = user.lastUserMessageAt;
+    if (
+      lastMessageAt &&
+      now - lastMessageAt >= TWELVE_HOURS_MS &&
+      !user.finalized &&
+      user.step !== "RESUME_DECISION"
+    ) {
+      user.resumeStep = user.step;
+      user.awaitingResumeDecision = true;
+      user.step = "RESUME_DECISION";
+
+      const nameLine = user.name ? `Nice to hear from you again, ${user.name} 😊\n` : "";
+      await delay(500);
+      await client.sendMessage(
+        from,
+        `${nameLine}Do you want to continue the last conversation or start again?\n1️⃣ Continue\n2️⃣ Start again`
+      );
+      if (user.name) {
+        user.greetedThisSession = true;
+      }
+      user.lastUserMessageAt = now;
+      user.data.lastUserMessage = text;
+      user.partialSavedAt = null;
+      scheduleIdleSave({ user, phone, assignedAdminId });
+      return;
+    }
+
+    if (user.isReturningUser && user.name && !user.greetedThisSession) {
+      await delay(500);
+      await client.sendMessage(from, `Nice to hear from you, ${user.name} 😊`);
+      user.greetedThisSession = true;
+    }
+
+    user.lastUserMessageAt = now;
+    user.data.lastUserMessage = text;
+    user.partialSavedAt = null;
+    scheduleIdleSave({ user, phone, assignedAdminId });
 
     if (isMenuCommand(lower, text)) {
       await delay(1000);
@@ -584,6 +800,40 @@ client.on("message", async (message) => {
         user.isReturningUser && user.name ? returningMenuText(user.name) : MAIN_MENU_TEXT
       );
       user.step = "MENU";
+      return;
+    }
+
+    /* ===============================
+       RESUME DECISION
+       =============================== */
+    if (user.step === "RESUME_DECISION") {
+      const wantsContinue = ["1", "continue", "yes", "y", "haan", "han", "ha"].includes(lower);
+      const wantsRestart = ["2", "start", "restart", "new", "no", "n", "nahi"].includes(lower);
+
+      if (!wantsContinue && !wantsRestart) {
+        await client.sendMessage(
+          from,
+          "Please reply with 1 to continue or 2 to start again."
+        );
+        return;
+      }
+
+      if (wantsRestart) {
+        user.data = {};
+        user.resumeStep = null;
+        user.awaitingResumeDecision = false;
+        user.step = "START";
+        await delay(1000);
+        await client.sendMessage(from, MAIN_MENU_TEXT);
+        user.step = "MENU";
+        return;
+      }
+
+      user.step = user.resumeStep || "MENU";
+      user.resumeStep = null;
+      user.awaitingResumeDecision = false;
+      await delay(1000);
+      await sendResumePrompt({ user, from });
       return;
     }
 
@@ -625,12 +875,6 @@ client.on("message", async (message) => {
           user.step = "SERVICE_DETAILS";
           return;
         }
-        if (["1", "2", "3"].includes(startNumber)) {
-          user.data.nextStep = "SERVICES_MENU";
-          await client.sendMessage(from, "Great 😊\nMay I know your *name*?");
-          user.step = "ASK_NAME";
-          return;
-        }
         await client.sendMessage(from, SERVICES_MENU_TEXT);
         user.step = "SERVICES_MENU";
         return;
@@ -643,24 +887,12 @@ client.on("message", async (message) => {
           user.step = "PRODUCT_REQUIREMENTS";
           return;
         }
-        if (["1", "2", "3"].includes(startNumber)) {
-          user.data.nextStep = "PRODUCTS_MENU";
-          await client.sendMessage(from, "Great 😊\nMay I know your *name*?");
-          user.step = "ASK_NAME";
-          return;
-        }
         await client.sendMessage(from, PRODUCTS_MENU_TEXT);
         user.step = "PRODUCTS_MENU";
         return;
       }
       if (resolvedIntent === "EXECUTIVE") {
         user.data.reason = "Talk to an Executive";
-        if (["1", "2", "3"].includes(startNumber)) {
-          user.data.nextStep = "EXECUTIVE_MESSAGE";
-          await client.sendMessage(from, "Great 😊\nMay I know your *name*?");
-          user.step = "ASK_NAME";
-          return;
-        }
         await client.sendMessage(
           from,
           "Sure 👍\nPlease tell us briefly *how we can help you today*."
@@ -719,59 +951,8 @@ client.on("message", async (message) => {
           ? "Products"
           : "Talk to an Executive";
 
+      await delay(1000);
       if (mainChoice === "SERVICES" && matchedService && matchedService.id === "executive") {
-        if (user.isReturningUser) {
-          await delay(1000);
-          await client.sendMessage(
-            from,
-            "Sure 👍\nPlease tell us briefly *how we can help you today*."
-          );
-          user.step = "EXECUTIVE_MESSAGE";
-          return;
-        }
-        user.data.nextStep = "EXECUTIVE_MESSAGE";
-      } else if (mainChoice === "SERVICES" && matchedService && matchedService.id !== "main_menu") {
-        user.data.serviceType = matchedService.label;
-        user.data.nextStep = "SERVICE_DETAILS";
-      } else if (mainChoice === "PRODUCTS" && matchedProduct && matchedProduct.id !== "main_menu") {
-        user.data.productType = matchedProduct.label;
-        user.data.nextStep = "PRODUCT_REQUIREMENTS";
-      } else {
-        user.data.nextStep =
-          mainChoice === "SERVICES"
-            ? "SERVICES_MENU"
-            : mainChoice === "PRODUCTS"
-            ? "PRODUCTS_MENU"
-            : "EXECUTIVE_MESSAGE";
-      }
-
-      if (user.isReturningUser) {
-        await delay(1000);
-        if (user.data.nextStep === "SERVICES_MENU") {
-          await client.sendMessage(from, SERVICES_MENU_TEXT);
-          user.step = "SERVICES_MENU";
-          return;
-        }
-        if (user.data.nextStep === "PRODUCTS_MENU") {
-          await client.sendMessage(from, PRODUCTS_MENU_TEXT);
-          user.step = "PRODUCTS_MENU";
-          return;
-        }
-        if (user.data.nextStep === "SERVICE_DETAILS") {
-          const serviceOption = matchOption(lower, SERVICE_OPTIONS);
-          await client.sendMessage(
-            from,
-            serviceOption?.prompt ||
-              "Please share your service details (DOB, time, place, and concern)."
-          );
-          user.step = "SERVICE_DETAILS";
-          return;
-        }
-        if (user.data.nextStep === "PRODUCT_REQUIREMENTS") {
-          await client.sendMessage(from, PRODUCT_DETAILS_PROMPT);
-          user.step = "PRODUCT_REQUIREMENTS";
-          return;
-        }
         await client.sendMessage(
           from,
           "Sure 👍\nPlease tell us briefly *how we can help you today*."
@@ -779,10 +960,37 @@ client.on("message", async (message) => {
         user.step = "EXECUTIVE_MESSAGE";
         return;
       }
-
-      await delay(1000);
-      await client.sendMessage(from, "Great 😊\nMay I know your *name*?");
-      user.step = "ASK_NAME";
+      if (mainChoice === "SERVICES" && matchedService && matchedService.id !== "main_menu") {
+        user.data.serviceType = matchedService.label;
+        await client.sendMessage(
+          from,
+          matchedService.prompt ||
+            "Please share your service details (DOB, time, place, and concern)."
+        );
+        user.step = "SERVICE_DETAILS";
+        return;
+      }
+      if (mainChoice === "PRODUCTS" && matchedProduct && matchedProduct.id !== "main_menu") {
+        user.data.productType = matchedProduct.label;
+        await client.sendMessage(from, PRODUCT_DETAILS_PROMPT);
+        user.step = "PRODUCT_REQUIREMENTS";
+        return;
+      }
+      if (mainChoice === "SERVICES") {
+        await client.sendMessage(from, SERVICES_MENU_TEXT);
+        user.step = "SERVICES_MENU";
+        return;
+      }
+      if (mainChoice === "PRODUCTS") {
+        await client.sendMessage(from, PRODUCTS_MENU_TEXT);
+        user.step = "PRODUCTS_MENU";
+        return;
+      }
+      await client.sendMessage(
+        from,
+        "Sure 👍\nPlease tell us briefly *how we can help you today*."
+      );
+      user.step = "EXECUTIVE_MESSAGE";
       return;
     }
 
@@ -793,13 +1001,7 @@ client.on("message", async (message) => {
       user.data.name = text;
       user.name = text;
 
-      await delay(1000);
-      await client.sendMessage(
-        from,
-        `Thanks ${text} 🙏\nCould you please share your *email address*?`
-      );
-
-      user.step = "ASK_EMAIL";
+      await maybeFinalizeLead({ user, from, phone, assignedAdminId });
       return;
     }
 
@@ -810,40 +1012,7 @@ client.on("message", async (message) => {
       user.data.email = text;
       user.email = text;
 
-      await delay(1000);
-      if (user.data.nextStep === "SERVICES_MENU") {
-        await client.sendMessage(from, SERVICES_MENU_TEXT);
-        user.step = "SERVICES_MENU";
-        return;
-      }
-      if (user.data.nextStep === "PRODUCTS_MENU") {
-        await client.sendMessage(from, PRODUCTS_MENU_TEXT);
-        user.step = "PRODUCTS_MENU";
-        return;
-      }
-      if (user.data.nextStep === "SERVICE_DETAILS") {
-        const serviceOption = SERVICE_OPTIONS.find(
-          (option) => option.label === user.data.serviceType
-        );
-        await client.sendMessage(
-          from,
-          serviceOption?.prompt ||
-            "Please share your service details (DOB, time, place, and concern)."
-        );
-        user.step = "SERVICE_DETAILS";
-        return;
-      }
-      if (user.data.nextStep === "PRODUCT_REQUIREMENTS") {
-        await client.sendMessage(from, PRODUCT_DETAILS_PROMPT);
-        user.step = "PRODUCT_REQUIREMENTS";
-        return;
-      }
-
-      await client.sendMessage(
-        from,
-        "Got it 👍\nPlease tell us briefly *how we can help you*."
-      );
-      user.step = "EXECUTIVE_MESSAGE";
+      await maybeFinalizeLead({ user, from, phone, assignedAdminId });
       return;
     }
 
@@ -917,7 +1086,7 @@ client.on("message", async (message) => {
       user.data.serviceDetails = text;
       user.data.message = buildRequirementSummary({ user, phone });
 
-      await finalizeLead({ user, from, phone, assignedAdminId });
+      await maybeFinalizeLead({ user, from, phone, assignedAdminId });
       return;
     }
 
@@ -958,7 +1127,7 @@ client.on("message", async (message) => {
       user.data.altContact = text;
       user.data.message = buildRequirementSummary({ user, phone });
 
-      await finalizeLead({ user, from, phone, assignedAdminId });
+      await maybeFinalizeLead({ user, from, phone, assignedAdminId });
       return;
     }
 
@@ -969,7 +1138,7 @@ client.on("message", async (message) => {
       user.data.executiveMessage = text;
       user.data.message = buildRequirementSummary({ user, phone });
 
-      await finalizeLead({ user, from, phone, assignedAdminId });
+      await maybeFinalizeLead({ user, from, phone, assignedAdminId });
       return;
     }
   } catch (err) {

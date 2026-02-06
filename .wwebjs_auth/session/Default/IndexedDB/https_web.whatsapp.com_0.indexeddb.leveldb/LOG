@@ -1,27 +1,51 @@
-2026/02/06-13:18:44.763 19fe5 Reusing MANIFEST /var/www/html/mex-end/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
-2026/02/06-13:18:44.764 19fe5 Recovering log #1510
-2026/02/06-13:18:44.785 19fe5 Reusing old log /var/www/html/mex-end/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/001510.log 
-2026/02/06-13:18:47.956 19ff0 Compacting 1@1 + 13@2 files
-2026/02/06-13:18:47.973 19ff0 Generated table #1527@1: 8532 keys, 2157217 bytes
-2026/02/06-13:18:47.988 19ff0 Generated table #1528@1: 4594 keys, 2161767 bytes
-2026/02/06-13:18:48.003 19ff0 Generated table #1529@1: 4494 keys, 2165821 bytes
-2026/02/06-13:18:48.017 19ff0 Generated table #1530@1: 4513 keys, 2166862 bytes
-2026/02/06-13:18:48.032 19ff0 Generated table #1531@1: 4502 keys, 2165833 bytes
-2026/02/06-13:18:48.046 19ff0 Generated table #1532@1: 4173 keys, 2162689 bytes
-2026/02/06-13:18:48.053 19ff0 Generated table #1533@1: 1618 keys, 1055647 bytes
-2026/02/06-13:18:48.053 19ff0 Compacted 1@1 + 13@2 files => 14035836 bytes
-2026/02/06-13:18:48.054 19ff0 compacted to: files[ 0 1 35 0 0 0 0 ]
-2026/02/06-13:18:48.055 19ff0 Delete type=2 #886
-2026/02/06-13:18:48.055 19ff0 Delete type=2 #1042
-2026/02/06-13:18:48.055 19ff0 Delete type=2 #884
-2026/02/06-13:18:48.055 19ff0 Delete type=2 #1472
-2026/02/06-13:18:48.055 19ff0 Delete type=2 #1489
-2026/02/06-13:18:48.055 19ff0 Delete type=2 #1513
-2026/02/06-13:18:48.055 19ff0 Delete type=2 #1091
-2026/02/06-13:18:48.055 19ff0 Delete type=2 #1069
-2026/02/06-13:18:48.055 19ff0 Delete type=2 #885
-2026/02/06-13:18:48.055 19ff0 Delete type=2 #1455
-2026/02/06-13:18:48.055 19ff0 Delete type=2 #1411
-2026/02/06-13:18:48.055 19ff0 Delete type=2 #887
-2026/02/06-13:18:48.055 19ff0 Delete type=2 #1429
-2026/02/06-13:18:48.055 19ff0 Delete type=2 #1506
+2026/02/06-13:59:24.085 1d574 Reusing MANIFEST /var/www/html/mex-end/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/02/06-13:59:24.087 1d574 Recovering log #1643
+2026/02/06-13:59:24.148 1d574 Reusing old log /var/www/html/mex-end/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/001643.log 
+2026/02/06-13:59:29.339 1d574 Level-0 table #1678: started
+2026/02/06-13:59:29.357 1d574 Level-0 table #1678: 1105238 bytes OK
+2026/02/06-13:59:29.358 1d574 Delete type=0 #1643
+2026/02/06-13:59:29.361 1d574 Compacting 1@0 + 0@1 files
+2026/02/06-13:59:29.378 1d574 Generated table #1679@0: 18652 keys, 328320 bytes
+2026/02/06-13:59:29.380 1d574 Generated table #1680@0: 2133 keys, 58106 bytes
+2026/02/06-13:59:29.383 1d574 Generated table #1681@0: 1698 keys, 114685 bytes
+2026/02/06-13:59:29.383 1d574 Compacted 1@0 + 0@1 files => 501111 bytes
+2026/02/06-13:59:29.384 1d574 compacted to: files[ 0 3 36 0 0 0 0 ]
+2026/02/06-13:59:29.384 1d574 Delete type=2 #1678
+2026/02/06-13:59:30.608 1d57d Compacting 1@1 + 10@2 files
+2026/02/06-13:59:30.647 1d57d Generated table #1682@1: 18093 keys, 2146185 bytes
+2026/02/06-13:59:30.678 1d57d Generated table #1683@1: 19182 keys, 2150533 bytes
+2026/02/06-13:59:30.725 1d57d Generated table #1684@1: 44116 keys, 2180127 bytes
+2026/02/06-13:59:30.802 1d57d Generated table #1685@1: 123332 keys, 2279155 bytes
+2026/02/06-13:59:30.872 1d57d Generated table #1686@1: 105149 keys, 2254815 bytes
+2026/02/06-13:59:30.948 1d57d Generated table #1687@1: 105028 keys, 2255260 bytes
+2026/02/06-13:59:31.026 1d57d Generated table #1688@1: 103112 keys, 2251432 bytes
+2026/02/06-13:59:31.095 1d57d Generated table #1689@1: 103916 keys, 2252997 bytes
+2026/02/06-13:59:31.155 1d57d Generated table #1690@1: 103874 keys, 2255182 bytes
+2026/02/06-13:59:31.212 1d57d Generated table #1691@1: 91042 keys, 2241264 bytes
+2026/02/06-13:59:31.215 1d57d Generated table #1692@1: 2498 keys, 56131 bytes
+2026/02/06-13:59:31.215 1d57d Compacted 1@1 + 10@2 files => 22323081 bytes
+2026/02/06-13:59:31.216 1d57d compacted to: files[ 0 2 37 0 0 0 0 ]
+2026/02/06-13:59:31.217 1d57d Delete type=2 #1662
+2026/02/06-13:59:31.217 1d57d Delete type=2 #1665
+2026/02/06-13:59:31.217 1d57d Delete type=2 #1659
+2026/02/06-13:59:31.217 1d57d Delete type=2 #1658
+2026/02/06-13:59:31.217 1d57d Delete type=2 #1666
+2026/02/06-13:59:31.217 1d57d Delete type=2 #1664
+2026/02/06-13:59:31.217 1d57d Delete type=2 #1660
+2026/02/06-13:59:31.217 1d57d Delete type=2 #1661
+2026/02/06-13:59:31.217 1d57d Delete type=2 #1679
+2026/02/06-13:59:31.217 1d57d Delete type=2 #1657
+2026/02/06-13:59:31.217 1d57d Delete type=2 #1663
+2026/02/06-13:59:31.657 1d574 Compacting 1@1 + 1@2 files
+2026/02/06-13:59:31.737 1d574 Generated table #1693@1: 43648 keys, 2230574 bytes
+2026/02/06-13:59:31.739 1d574 Generated table #1694@1: 43 keys, 44938 bytes
+2026/02/06-13:59:31.739 1d574 Compacted 1@1 + 1@2 files => 2275512 bytes
+2026/02/06-13:59:31.749 1d574 compacted to: files[ 0 1 38 0 0 0 0 ]
+2026/02/06-13:59:31.749 1d574 Delete type=2 #1680
+2026/02/06-13:59:31.750 1d574 Delete type=2 #1668
+2026/02/06-14:32:34.046 1d574 Compacting 1@1 + 1@2 files
+2026/02/06-14:32:34.082 1d574 Generated table #1695@1: 24166 keys, 1694873 bytes
+2026/02/06-14:32:34.082 1d574 Compacted 1@1 + 1@2 files => 1694873 bytes
+2026/02/06-14:32:34.083 1d574 compacted to: files[ 0 0 38 0 0 0 0 ]
+2026/02/06-14:32:34.084 1d574 Delete type=2 #1656
+2026/02/06-14:32:34.084 1d574 Delete type=2 #1681
