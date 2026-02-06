@@ -108,7 +108,10 @@ export default function SettingsPage() {
 
   const fetchWhatsAppStatus = useCallback(async (isMountedRef = { current: true }) => {
     try {
-      const response = await fetch(`${WHATSAPP_API_BASE}/whatsapp/status`);
+      if (!user?.id) return;
+      const response = await fetch(
+        `${WHATSAPP_API_BASE}/whatsapp/status?adminId=${user.id}`
+      );
       if (!response.ok) {
         throw new Error('Failed to load WhatsApp status');
       }
@@ -137,9 +140,16 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const isMountedRef = { current: true };
+    if (!user?.id) {
+      return () => {
+        isMountedRef.current = false;
+      };
+    }
     fetchWhatsAppStatus(isMountedRef);
 
-    const socket = io(WHATSAPP_SOCKET_URL);
+    const socket = io(WHATSAPP_SOCKET_URL, {
+      query: { adminId: user?.id },
+    });
 
     socket.on('whatsapp:status', (payload) => {
       const nextStatus = payload?.status || 'idle';
@@ -196,6 +206,8 @@ export default function SettingsPage() {
       setWhatsappActionStatus('');
       const response = await fetch(`${WHATSAPP_API_BASE}/whatsapp/disconnect`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId: user?.id }),
       });
       if (!response.ok) {
         throw new Error('Failed to disconnect WhatsApp');

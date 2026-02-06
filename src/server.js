@@ -53,13 +53,18 @@ app.get("/", (req, res) => {
 });
 
 app.get("/whatsapp/status", (req, res) => {
-  res.json(getWhatsAppState());
+  const adminId = Number(req.query?.adminId);
+  res.json(getWhatsAppState(Number.isFinite(adminId) ? adminId : undefined));
 });
 
 app.post("/whatsapp/start", async (req, res) => {
   try {
     const adminId = Number(req.body?.adminId);
     const result = await startWhatsApp(Number.isFinite(adminId) ? adminId : undefined);
+    if (result?.error) {
+      res.status(400).json(result);
+      return;
+    }
     res.json(result);
   } catch (err) {
     console.error("❌ Failed to start WhatsApp:", err);
@@ -69,7 +74,12 @@ app.post("/whatsapp/start", async (req, res) => {
 
 app.post("/whatsapp/disconnect", async (req, res) => {
   try {
-    const result = await stopWhatsApp();
+    const adminId = Number(req.body?.adminId);
+    const result = await stopWhatsApp(Number.isFinite(adminId) ? adminId : undefined);
+    if (result?.error) {
+      res.status(400).json(result);
+      return;
+    }
     res.json(result);
   } catch (err) {
     console.error("❌ Failed to disconnect WhatsApp:", err);
@@ -92,25 +102,36 @@ const io = new Server(server, {
 });
 
 io.on("connection", (socket) => {
-  const state = getWhatsAppState();
-  socket.emit("whatsapp:status", state);
-  if (state.qrImage) {
-    socket.emit("whatsapp:qr", state.qrImage);
+  const adminId = Number(socket.handshake.query?.adminId);
+  if (Number.isFinite(adminId)) {
+    const room = `admin:${adminId}`;
+    socket.join(room);
+    const state = getWhatsAppState(adminId);
+    socket.emit("whatsapp:status", state);
+    if (state.qrImage) {
+      socket.emit("whatsapp:qr", state.qrImage);
+    }
+  } else {
+    socket.emit("whatsapp:status", getWhatsAppState());
   }
 });
 
-whatsappEvents.on("status", (nextStatus) => {
-  const state = getWhatsAppState();
-  io.emit("whatsapp:status", {
-    status: nextStatus,
-    ready: nextStatus === "connected",
-    qrImage: state.qrImage,
-    activeAdminId: state.activeAdminId,
-  });
+whatsappEvents.on("status", (payload) => {
+  const adminId = Number(payload?.adminId);
+  if (Number.isFinite(adminId)) {
+    io.to(`admin:${adminId}`).emit("whatsapp:status", payload);
+    return;
+  }
+  io.emit("whatsapp:status", payload);
 });
 
-whatsappEvents.on("qr", (qrImage) => {
-  io.emit("whatsapp:qr", qrImage);
+whatsappEvents.on("qr", (payload) => {
+  const adminId = Number(payload?.adminId);
+  if (Number.isFinite(adminId)) {
+    io.to(`admin:${adminId}`).emit("whatsapp:qr", payload.qrImage);
+    return;
+  }
+  io.emit("whatsapp:qr", payload?.qrImage || payload);
 });
 
 let currentPort = BASE_PORT;
@@ -118,9 +139,6 @@ let currentPort = BASE_PORT;
 const startServer = (port) => {
   server.listen(port, () => {
     console.log(`🚀 Backend running on http://localhost:${port}`);
-    startWhatsApp().catch((err) => {
-      console.error("❌ WhatsApp auto-start failed:", err);
-    });
   });
 };
 

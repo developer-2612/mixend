@@ -8,167 +8,200 @@ const { Client, LocalAuth } = pkg;
 export const whatsappEvents = new EventEmitter();
 
 /* ===============================
-   CLIENT SETUP
+   MULTI-ADMIN WHATSAPP SESSIONS
    =============================== */
-export const client = new Client({
-  authStrategy: new LocalAuth(),
-  puppeteer: {
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  },
+const sessions = new Map();
+
+const createClient = (adminId) =>
+  new Client({
+    authStrategy: new LocalAuth({
+      clientId: `admin-${adminId}`,
+      dataPath: ".wwebjs_auth",
+    }),
+    puppeteer: {
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    },
+  });
+
+const buildStateResponse = (session) => ({
+  status: session.state.status,
+  ready: session.state.isReady,
+  qrImage: session.state.latestQrImage,
+  activeAdminId: session.adminId,
+  activeAdminNumber: session.state.activeAdminNumber,
+  activeAdminName: session.state.activeAdminName,
 });
 
-
-let isReady = false;
-let hasStarted = false;
-let status = "idle";
-let latestQrImage = null;
-let activeAdminId = null;
-let pendingAdminId = null;
-let activeAdminNumber = null;
-let activeAdminName = null;
-
-const updateAdminWhatsAppDetails = async (adminId) => {
-  if (!adminId) return;
-  const info = client.info || {};
-  const widUser = info?.wid?.user || activeAdminNumber;
-  const displayName = info?.pushname || info?.displayName || activeAdminName;
-  activeAdminNumber = widUser;
-  activeAdminName = displayName;
+const updateAdminWhatsAppDetails = async (session) => {
+  if (!session?.adminId) return;
+  const info = session.client.info || {};
+  const widUser = info?.wid?.user || session.state.activeAdminNumber;
+  const displayName =
+    info?.pushname || info?.displayName || session.state.activeAdminName;
+  session.state.activeAdminNumber = widUser;
+  session.state.activeAdminName = displayName;
   await db.query(
     `UPDATE admin_accounts
      SET whatsapp_number = ?, whatsapp_name = ?, whatsapp_connected_at = NOW()
      WHERE id = ?`,
-    [activeAdminNumber, activeAdminName, adminId]
+    [session.state.activeAdminNumber, session.state.activeAdminName, session.adminId]
   );
 };
 
-const emitStatus = (nextStatus) => {
-  status = nextStatus;
-  whatsappEvents.emit("status", status);
+const emitStatus = (session, nextStatus) => {
+  session.state.status = nextStatus;
+  whatsappEvents.emit("status", {
+    adminId: session.adminId,
+    ...buildStateResponse(session),
+  });
 };
 
-/* ===============================
-   QR & READY EVENTS
-   =============================== */
-client.on("qr", async (qr) => {
-  emitStatus("qr");
-  isReady = false;
-  console.log("📱 Scan the QR code");
-  qrcode.generate(qr, { small: true });
-  try {
-    latestQrImage = await qrImage.toDataURL(qr);
-    whatsappEvents.emit("qr", latestQrImage);
-  } catch (err) {
-    console.error("❌ QR generation failed:", err);
-  }
-});
+const emitQr = (session, qrImageValue) => {
+  whatsappEvents.emit("qr", { adminId: session.adminId, qrImage: qrImageValue });
+};
 
-client.on("ready", () => {
-  isReady = true;
-  latestQrImage = null;
-  emitStatus("connected");
-  console.log("✅ WhatsApp Ready");
+const attachClientEvents = (session) => {
+  const { client } = session;
 
-  if (pendingAdminId) {
-    activeAdminId = pendingAdminId;
-    pendingAdminId = null;
-  }
+  client.on("qr", async (qr) => {
+    emitStatus(session, "qr");
+    session.state.isReady = false;
+    console.log(`📱 Scan the QR code (admin ${session.adminId})`);
+    qrcode.generate(qr, { small: true });
+    try {
+      session.state.latestQrImage = await qrImage.toDataURL(qr);
+      emitQr(session, session.state.latestQrImage);
+    } catch (err) {
+      console.error("❌ QR generation failed:", err);
+    }
+  });
 
-  if (activeAdminId) {
-    updateAdminWhatsAppDetails(activeAdminId).catch((err) => {
+  client.on("ready", () => {
+    session.state.isReady = true;
+    session.state.latestQrImage = null;
+    emitStatus(session, "connected");
+    console.log(`✅ WhatsApp Ready (admin ${session.adminId})`);
+    updateAdminWhatsAppDetails(session).catch((err) => {
       console.error("❌ Failed to update admin WhatsApp details:", err.message);
     });
-  } else {
-    console.warn("⚠️ WhatsApp connected without an active admin.");
-  }
-});
+  });
 
-client.on("disconnected", () => {
-  isReady = false;
-  emitStatus("disconnected");
-  console.log("⚠️ WhatsApp disconnected");
-  activeAdminNumber = null;
-  activeAdminName = null;
-});
+  client.on("disconnected", () => {
+    session.state.isReady = false;
+    emitStatus(session, "disconnected");
+    console.log(`⚠️ WhatsApp disconnected (admin ${session.adminId})`);
+    session.state.activeAdminNumber = null;
+    session.state.activeAdminName = null;
+  });
 
-client.on("auth_failure", () => {
-  isReady = false;
-  emitStatus("auth_failure");
-  console.log("❌ WhatsApp auth failure");
-});
+  client.on("auth_failure", () => {
+    session.state.isReady = false;
+    emitStatus(session, "auth_failure");
+    console.log(`❌ WhatsApp auth failure (admin ${session.adminId})`);
+  });
+
+  attachAutomationHandlers(session);
+};
+
+const createSession = (adminId) => {
+  const session = {
+    adminId,
+    client: createClient(adminId),
+    state: {
+      isReady: false,
+      hasStarted: false,
+      status: "idle",
+      latestQrImage: null,
+      activeAdminNumber: null,
+      activeAdminName: null,
+    },
+    users: Object.create(null),
+  };
+  sessions.set(adminId, session);
+  attachClientEvents(session);
+  return session;
+};
 
 export const startWhatsApp = async (adminId) => {
-  if (hasStarted) {
-    if (adminId) {
-      if (status === "connected") {
-        activeAdminId = adminId;
-        updateAdminWhatsAppDetails(activeAdminId).catch((err) => {
-          console.error("❌ Failed to update admin WhatsApp details:", err.message);
-        });
-      } else {
-        pendingAdminId = adminId;
-      }
-    }
-    return {
-      status,
-      alreadyStarted: true,
-      activeAdminId,
-    };
+  if (!Number.isFinite(adminId)) {
+    return { status: "idle", alreadyStarted: false, error: "adminId required" };
+  }
+  const session = sessions.get(adminId) || createSession(adminId);
+
+  if (session.state.hasStarted) {
+    return { ...buildStateResponse(session), alreadyStarted: true };
   }
 
-  hasStarted = true;
-  if (adminId) {
-    pendingAdminId = adminId;
-  }
-  emitStatus("starting");
+  session.state.hasStarted = true;
+  emitStatus(session, "starting");
   try {
-    await client.initialize();
-    return {
-      status,
-      alreadyStarted: false,
-      activeAdminId,
-    };
+    await session.client.initialize();
+    return { ...buildStateResponse(session), alreadyStarted: false };
   } catch (err) {
-    hasStarted = false;
-    emitStatus("error");
+    session.state.hasStarted = false;
+    emitStatus(session, "error");
     throw err;
   }
 };
 
-export const stopWhatsApp = async () => {
-  if (!hasStarted) {
-    return { status, alreadyStarted: false };
+export const stopWhatsApp = async (adminId) => {
+  if (!Number.isFinite(adminId)) {
+    return { status: "idle", alreadyStarted: false, error: "adminId required" };
+  }
+  const session = sessions.get(adminId);
+  if (!session || !session.state.hasStarted) {
+    return {
+      status: session?.state.status || "idle",
+      alreadyStarted: false,
+      activeAdminId: adminId,
+    };
   }
 
   try {
-    await client.destroy();
+    await session.client.destroy();
   } finally {
-    hasStarted = false;
-    isReady = false;
-    latestQrImage = null;
-    emitStatus("disconnected");
-    activeAdminId = null;
-    pendingAdminId = null;
-    activeAdminNumber = null;
-    activeAdminName = null;
+    Object.values(session.users || {}).forEach((user) => {
+      if (user?.idleTimer) {
+        clearTimeout(user.idleTimer);
+      }
+    });
+    session.state.hasStarted = false;
+    session.state.isReady = false;
+    session.state.latestQrImage = null;
+    session.state.activeAdminNumber = null;
+    session.state.activeAdminName = null;
+    emitStatus(session, "disconnected");
+    sessions.delete(adminId);
   }
-  return { status, alreadyStarted: true };
+  return { ...buildStateResponse(session), alreadyStarted: true };
 };
 
-export const getWhatsAppState = () => ({
-  status,
-  ready: isReady,
-  qrImage: latestQrImage,
-  activeAdminId,
-  activeAdminNumber,
-  activeAdminName,
-});
+export const getWhatsAppState = (adminId) => {
+  if (!Number.isFinite(adminId)) {
+    return {
+      status: "idle",
+      ready: false,
+      qrImage: null,
+      activeAdminId: null,
+      activeAdminNumber: null,
+      activeAdminName: null,
+    };
+  }
+  const session = sessions.get(adminId);
+  if (!session) {
+    return {
+      status: "idle",
+      ready: false,
+      qrImage: null,
+      activeAdminId: adminId,
+      activeAdminNumber: null,
+      activeAdminName: null,
+    };
+  }
+  return buildStateResponse(session);
+};
 
-/* ===============================
-   🧠 USER MEMORY
-   =============================== */
-const users = Object.create(null);
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
 /* ===============================
@@ -477,36 +510,43 @@ const buildRequirementSummary = ({ user, phone }) => {
   return lines.join("\n");
 };
 
-const promptForName = async ({ user, from }) => {
+const promptForName = async ({ user, from, client }) => {
   await delay(1000);
   await client.sendMessage(from, "May I know your *name*?");
   user.step = "ASK_NAME";
 };
 
-const promptForEmail = async ({ user, from }) => {
+const promptForEmail = async ({ user, from, client }) => {
   await delay(1000);
   await client.sendMessage(from, "Could you please share your *email address*?");
   user.step = "ASK_EMAIL";
 };
 
-const maybeFinalizeLead = async ({ user, from, phone, assignedAdminId }) => {
+const maybeFinalizeLead = async ({
+  user,
+  from,
+  phone,
+  assignedAdminId,
+  client,
+  users,
+}) => {
   const hasName = Boolean(user.name || user.data.name);
   const hasEmail = Boolean(user.email || user.data.email);
 
   if (!hasName) {
     user.data.pendingFinalize = true;
-    await promptForName({ user, from });
+    await promptForName({ user, from, client });
     return;
   }
 
   if (!hasEmail) {
     user.data.pendingFinalize = true;
-    await promptForEmail({ user, from });
+    await promptForEmail({ user, from, client });
     return;
   }
 
   user.data.message = buildRequirementSummary({ user, phone });
-  await finalizeLead({ user, from, phone, assignedAdminId });
+  await finalizeLead({ user, from, phone, assignedAdminId, client, users });
 };
 
 const savePartialLead = async ({ user, phone, assignedAdminId }) => {
@@ -548,7 +588,7 @@ const scheduleIdleSave = ({ user, phone, assignedAdminId }) => {
   }, TWO_MINUTES_MS);
 };
 
-const sendResumePrompt = async ({ user, from }) => {
+const sendResumePrompt = async ({ user, from, client }) => {
   switch (user.step) {
     case "SERVICES_MENU":
       await client.sendMessage(from, SERVICES_MENU_TEXT);
@@ -605,7 +645,14 @@ const sendResumePrompt = async ({ user, from }) => {
   }
 };
 
-const finalizeLead = async ({ user, from, phone, assignedAdminId }) => {
+const finalizeLead = async ({
+  user,
+  from,
+  phone,
+  assignedAdminId,
+  client,
+  users,
+}) => {
   let clientId = user.clientId;
   const adminId = user.assignedAdminId || assignedAdminId;
   const displayName = user.name || user.data.name || "Unknown";
@@ -657,17 +704,22 @@ const finalizeLead = async ({ user, from, phone, assignedAdminId }) => {
     clearTimeout(user.idleTimer);
   }
   user.finalized = true;
-  delete users[from];
+  if (users?.[from]) {
+    delete users[from];
+  }
 };
 
+function attachAutomationHandlers(session) {
+  const { client } = session;
+  const users = session.users;
 
-/* ===============================
-   🔥 AUTOMATION LOGIC
-   =============================== */
-client.on("message", async (message) => {
-  try {
-    if (!isReady) return;
-    if (!message || message.fromMe) return;
+  /* ===============================
+     🔥 AUTOMATION LOGIC
+     =============================== */
+  client.on("message", async (message) => {
+    try {
+      if (!session.state.isReady) return;
+      if (!message || message.fromMe) return;
 
     const from = message.from;
     if (!from || from.endsWith("@g.us")) return;
@@ -681,6 +733,7 @@ client.on("message", async (message) => {
     /* ===============================
        🔍 CHECK USER IN DB
        =============================== */
+    const activeAdminId = session.adminId;
     if (!activeAdminId) {
       console.warn("⚠️ Incoming message ignored because no admin is connected.");
       return;
@@ -833,7 +886,7 @@ client.on("message", async (message) => {
       user.resumeStep = null;
       user.awaitingResumeDecision = false;
       await delay(1000);
-      await sendResumePrompt({ user, from });
+      await sendResumePrompt({ user, from, client });
       return;
     }
 
@@ -1001,7 +1054,14 @@ client.on("message", async (message) => {
       user.data.name = text;
       user.name = text;
 
-      await maybeFinalizeLead({ user, from, phone, assignedAdminId });
+      await maybeFinalizeLead({
+        user,
+        from,
+        phone,
+        assignedAdminId,
+        client,
+        users,
+      });
       return;
     }
 
@@ -1012,7 +1072,14 @@ client.on("message", async (message) => {
       user.data.email = text;
       user.email = text;
 
-      await maybeFinalizeLead({ user, from, phone, assignedAdminId });
+      await maybeFinalizeLead({
+        user,
+        from,
+        phone,
+        assignedAdminId,
+        client,
+        users,
+      });
       return;
     }
 
@@ -1086,7 +1153,14 @@ client.on("message", async (message) => {
       user.data.serviceDetails = text;
       user.data.message = buildRequirementSummary({ user, phone });
 
-      await maybeFinalizeLead({ user, from, phone, assignedAdminId });
+      await maybeFinalizeLead({
+        user,
+        from,
+        phone,
+        assignedAdminId,
+        client,
+        users,
+      });
       return;
     }
 
@@ -1127,7 +1201,14 @@ client.on("message", async (message) => {
       user.data.altContact = text;
       user.data.message = buildRequirementSummary({ user, phone });
 
-      await maybeFinalizeLead({ user, from, phone, assignedAdminId });
+      await maybeFinalizeLead({
+        user,
+        from,
+        phone,
+        assignedAdminId,
+        client,
+        users,
+      });
       return;
     }
 
@@ -1138,13 +1219,21 @@ client.on("message", async (message) => {
       user.data.executiveMessage = text;
       user.data.message = buildRequirementSummary({ user, phone });
 
-      await maybeFinalizeLead({ user, from, phone, assignedAdminId });
+      await maybeFinalizeLead({
+        user,
+        from,
+        phone,
+        assignedAdminId,
+        client,
+        users,
+      });
       return;
     }
   } catch (err) {
-    console.error("❌ Automation error:", err);
-  }
-});
+      console.error("❌ Automation error:", err);
+    }
+  });
+}
 
 /* ===============================
    INIT
