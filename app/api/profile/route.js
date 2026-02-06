@@ -8,7 +8,17 @@ export async function GET() {
     const user = await requireAuth();
     const admin = await getAdminById(user.id);
     if (!admin) {
-      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+      const response = NextResponse.json({ success: false, error: 'User not found' }, { status: 401 });
+      response.cookies.set({
+        name: 'auth_token',
+        value: '',
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 0,
+        secure: process.env.NODE_ENV === 'production',
+      });
+      return response;
     }
     return NextResponse.json({ success: true, data: admin });
   } catch (error) {

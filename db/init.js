@@ -1,5 +1,8 @@
 import './load-env.js';
 import mysql from "mysql2/promise";
+import nodemailer from "nodemailer";
+import { randomBytes } from "node:crypto";
+import { hashPassword } from "../lib/auth.js";
 
 const DB_NAME = process.env.DB_NAME || "client_handle";
 
@@ -9,6 +12,111 @@ const config = {
   password: process.env.DB_PASSWORD || "root",
   port: Number(process.env.DB_PORT || 3306),
 };
+
+const DEFAULT_SUPER_ADMIN = {
+  name: "Rishab Khanna",
+  phone: "8708767499",
+  email: "rishabkhanna26@gmail.com",
+};
+
+const SMTP_EMAIL = process.env.SMTP_EMAIL || "";
+const SMTP_PASSWORD = process.env.SMTP_PASSWORD || "";
+
+function generatePassword() {
+  return randomBytes(10).toString("hex");
+}
+
+async function sendPasswordEmail(to, password) {
+  if (!SMTP_EMAIL || !SMTP_PASSWORD) {
+    console.warn("⚠️ SMTP_EMAIL or SMTP_PASSWORD not set. Skipping password email.");
+    return false;
+  }
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: SMTP_EMAIL,
+      pass: SMTP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: SMTP_EMAIL,
+    to,
+    subject: "Your AlgoAura Super Admin Account",
+    text: `Your super admin account has been created.\n\nEmail: ${to}\nTemporary Password: ${password}\n\nPlease log in and change your password.`,
+  });
+  return true;
+}
+
+async function ensureDefaultSuperAdmin(connection) {
+  const [existingSuper] = await connection.query(
+    `SELECT id FROM admin_accounts WHERE admin_tier = 'super_admin' LIMIT 1`
+  );
+
+  if (existingSuper.length > 0) {
+    return;
+  }
+
+  const [existing] = await connection.query(
+    `SELECT id, password_hash, admin_tier FROM admin_accounts WHERE email = ? OR phone = ? LIMIT 1`,
+    [DEFAULT_SUPER_ADMIN.email, DEFAULT_SUPER_ADMIN.phone]
+  );
+
+  let passwordToSend = null;
+  if (existing.length > 0) {
+    const record = existing[0];
+    const updates = [];
+    const values = [];
+
+    if (record.admin_tier !== "super_admin") {
+      updates.push("admin_tier = 'super_admin'");
+    }
+
+    if (!record.password_hash) {
+      const plainPassword = generatePassword();
+      passwordToSend = plainPassword;
+      updates.push("password_hash = ?");
+      values.push(hashPassword(plainPassword));
+    }
+
+    if (updates.length > 0) {
+      values.push(record.id);
+      await connection.query(
+        `UPDATE admin_accounts SET ${updates.join(", ")} WHERE id = ?`,
+        values
+      );
+    }
+  } else {
+    const plainPassword = generatePassword();
+    passwordToSend = plainPassword;
+    await connection.query(
+      `INSERT INTO admin_accounts (name, phone, email, password_hash, admin_tier, status)
+       VALUES (?, ?, ?, ?, 'super_admin', 'active')`,
+      [
+        DEFAULT_SUPER_ADMIN.name,
+        DEFAULT_SUPER_ADMIN.phone,
+        DEFAULT_SUPER_ADMIN.email,
+        hashPassword(plainPassword),
+      ]
+    );
+  }
+
+  if (passwordToSend) {
+    try {
+      const sent = await sendPasswordEmail(DEFAULT_SUPER_ADMIN.email, passwordToSend);
+      if (sent) {
+        console.log("✅ Super admin password emailed.");
+      } else {
+        console.warn("⚠️ Email not sent. Temporary super admin password:", passwordToSend);
+      }
+    } catch (err) {
+      console.error("❌ Failed to send super admin email:", err.message);
+      console.warn("⚠️ Temporary super admin password:", passwordToSend);
+    }
+  } else {
+    console.log("✅ Super admin already existed with a password.");
+  }
+}
 
 async function dbExists(connection, dbName) {
   const [rows] = await connection.query(
@@ -141,6 +249,45 @@ export async function initDatabase() {
           )
         `,
       },
+      {
+        name: "broadcasts",
+        sql: `
+          CREATE TABLE broadcasts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(150) NOT NULL,
+            message TEXT NOT NULL,
+            target_audience_type VARCHAR(50) DEFAULT 'all',
+            scheduled_at DATETIME,
+            status ENUM('draft', 'scheduled', 'sent', 'failed') DEFAULT 'draft',
+            sent_count INT DEFAULT 0,
+            delivered_count INT DEFAULT 0,
+            created_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by) REFERENCES admin_accounts(id),
+            INDEX (status),
+            INDEX (created_by)
+          )
+        `,
+      },
+      {
+        name: "message_templates",
+        sql: `
+          CREATE TABLE message_templates (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(150) NOT NULL,
+            category VARCHAR(100) NOT NULL,
+            content TEXT NOT NULL,
+            variables_json TEXT,
+            created_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by) REFERENCES admin_accounts(id),
+            INDEX (category),
+            INDEX (created_by)
+          )
+        `,
+      },
     ];
 
     let createdCount = 0;
@@ -161,6 +308,7 @@ export async function initDatabase() {
       console.log(`✅ Tables created: ${createdCount}/${tables.length}`);
     }
 
+    await ensureDefaultSuperAdmin(connection);
     console.log("✅ Database ready and verified");
 
     await connection.end();

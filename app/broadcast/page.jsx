@@ -15,7 +15,6 @@ import {
   faCircleXmark,
   faClock,
 } from '@fortawesome/free-solid-svg-icons';
-import { broadcastService, contactService } from '../../lib/mock-services.js';
 
 export default function BroadcastPage() {
   const [broadcasts, setBroadcasts] = useState([]);
@@ -36,11 +35,13 @@ export default function BroadcastPage() {
   const fetchData = async () => {
     try {
       const [broadcastsRes, contactsRes] = await Promise.all([
-        broadcastService.getAll(),
-        contactService.getAll()
+        fetch('/api/broadcasts', { credentials: 'include' }),
+        fetch('/api/users', { credentials: 'include' })
       ]);
-      setBroadcasts(broadcastsRes.data.broadcasts);
-      setContacts(contactsRes.data.contacts);
+      const broadcastsData = await broadcastsRes.json();
+      const contactsData = await contactsRes.json();
+      setBroadcasts(broadcastsData.data || []);
+      setContacts(contactsData.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -51,10 +52,21 @@ export default function BroadcastPage() {
   const handleCreateBroadcast = async (e) => {
     e.preventDefault();
     try {
-      await broadcastService.create({
-        ...newBroadcast,
-        target_audience: { type: newBroadcast.target_audience }
+      const response = await fetch('/api/broadcasts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          title: newBroadcast.title,
+          message: newBroadcast.message,
+          target_audience: newBroadcast.target_audience,
+          scheduled_at: newBroadcast.scheduled_at,
+        }),
       });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create broadcast');
+      }
       setShowCreateModal(false);
       setNewBroadcast({ title: '', message: '', target_audience: 'all', scheduled_at: '' });
       fetchData();

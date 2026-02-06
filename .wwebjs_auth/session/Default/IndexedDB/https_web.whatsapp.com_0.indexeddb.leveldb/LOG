@@ -1,2 +1,67 @@
-2026/02/06-10:18:24.233 c4fc Creating DB /var/www/html/mex-end/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb since it was missing.
-2026/02/06-10:18:24.235 c4fc Reusing MANIFEST /var/www/html/mex-end/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/02/06-10:54:32.809 efac Reusing MANIFEST /var/www/html/mex-end/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/02/06-10:54:32.809 efac Recovering log #3
+2026/02/06-10:54:32.819 efac Reusing old log /var/www/html/mex-end/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/000003.log 
+2026/02/06-10:54:33.150 efb5 Manual compaction at level-0 from '\x00\x03\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x04\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/02/06-10:54:33.151 efb7 Level-0 table #5: started
+2026/02/06-10:54:33.161 efb7 Level-0 table #5: 117210 bytes OK
+2026/02/06-10:54:33.163 efb7 Delete type=0 #3
+2026/02/06-10:54:33.164 efb5 Manual compaction at level-0 from '\x00\x08\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x09\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/02/06-10:54:33.165 efb5 Level-0 table #7: started
+2026/02/06-10:54:33.166 efb5 Level-0 table #7: 1890 bytes OK
+2026/02/06-10:54:33.167 efb5 Delete type=0 #4
+2026/02/06-10:54:33.167 efaa Manual compaction at level-0 from '\x00\x09\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x0a\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/02/06-10:54:33.167 efaa Manual compaction at level-1 from '\x00\x09\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x0a\x00\x00\x00' @ 0 : 0; will stop at '\x00\x09\x05\x02\x03\x00\x00\x00\x00\x00\x00\xf0?' @ 8462 : 0
+2026/02/06-10:54:33.167 efaa Compacting 1@1 + 1@2 files
+2026/02/06-10:54:33.172 efaa Generated table #8@1: 686 keys, 26394 bytes
+2026/02/06-10:54:33.172 efaa Compacted 1@1 + 1@2 files => 26394 bytes
+2026/02/06-10:54:33.174 efaa compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/02/06-10:54:33.174 efaa Delete type=2 #7
+2026/02/06-10:54:33.174 efaa Manual compaction at level-1 from '\x00\x09\x05\x02\x03\x00\x00\x00\x00\x00\x00\xf0?' @ 8462 : 0 .. '\x00\x0a\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/02/06-10:54:33.174 efaa Level-0 table #10: started
+2026/02/06-10:54:33.175 efaa Level-0 table #10: 4654 bytes OK
+2026/02/06-10:54:33.177 efaa Delete type=0 #6
+2026/02/06-10:54:33.177 efaa Delete type=2 #5
+2026/02/06-10:54:33.178 efaa Manual compaction at level-0 from '\x00\x0a\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x0b\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/02/06-10:54:33.178 efaa Manual compaction at level-1 from '\x00\x0a\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x0b\x00\x00\x00' @ 0 : 0; will stop at '\x00\x0e\x00\x00\xc8\x11\x00w\x00o\x00r\x00k\x00e\x00r\x00_\x00w\x00a\x00m\x00_\x00e\x00v\x00e\x00n\x00t\x00s' @ 8779 : 1
+2026/02/06-10:54:33.178 efaa Compacting 1@1 + 1@2 files
+2026/02/06-10:54:33.180 efaa Generated table #11@1: 970 keys, 30182 bytes
+2026/02/06-10:54:33.180 efaa Compacted 1@1 + 1@2 files => 30182 bytes
+2026/02/06-10:54:33.181 efaa compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/02/06-10:54:33.181 efaa Delete type=2 #10
+2026/02/06-10:54:33.181 efaa Manual compaction at level-1 from '\x00\x0e\x00\x00\xc8\x11\x00w\x00o\x00r\x00k\x00e\x00r\x00_\x00w\x00a\x00m\x00_\x00e\x00v\x00e\x00n\x00t\x00s' @ 8779 : 1 .. '\x00\x0b\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/02/06-10:54:33.182 efaa Level-0 table #13: started
+2026/02/06-10:54:33.182 efaa Level-0 table #13: 510 bytes OK
+2026/02/06-10:54:33.183 efaa Delete type=2 #8
+2026/02/06-10:54:33.183 efaa Delete type=0 #9
+2026/02/06-10:54:33.184 efaa Manual compaction at level-0 from '\x00\x0c\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x0d\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/02/06-10:54:33.184 efaa Manual compaction at level-1 from '\x00\x0c\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x0d\x00\x00\x00' @ 0 : 0; will stop at '\x00\x0c\x02\x02\x03\x00\x00\x00\x00\x00\x00\xf0?' @ 8839 : 0
+2026/02/06-10:54:33.184 efaa Compacting 1@1 + 1@2 files
+2026/02/06-10:54:33.185 efaa Generated table #14@1: 941 keys, 29539 bytes
+2026/02/06-10:54:33.185 efaa Compacted 1@1 + 1@2 files => 29539 bytes
+2026/02/06-10:54:33.186 efaa compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/02/06-10:54:33.186 efaa Delete type=2 #13
+2026/02/06-10:54:33.186 efaa Manual compaction at level-1 from '\x00\x0c\x02\x02\x03\x00\x00\x00\x00\x00\x00\xf0?' @ 8839 : 0 .. '\x00\x0d\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/02/06-10:54:33.186 efaa Level-0 table #16: started
+2026/02/06-10:54:33.187 efaa Level-0 table #16: 500 bytes OK
+2026/02/06-10:54:33.188 efaa Delete type=2 #11
+2026/02/06-10:54:33.188 efaa Delete type=0 #12
+2026/02/06-10:54:33.188 efaa Manual compaction at level-0 from '\x00\x0d\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x0e\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/02/06-10:54:33.188 efaa Manual compaction at level-1 from '\x00\x0d\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x0e\x00\x00\x00' @ 0 : 0; will stop at '\x00\x0d\x00\x00\xc8\x0d\x00l\x00o\x00c\x00a\x00l\x00_\x00s\x00t\x00o\x00r\x00a\x00g\x00e' @ 8864 : 0
+2026/02/06-10:54:33.189 efaa Compacting 1@1 + 1@2 files
+2026/02/06-10:54:33.190 efaa Generated table #17@1: 916 keys, 29258 bytes
+2026/02/06-10:54:33.190 efaa Compacted 1@1 + 1@2 files => 29258 bytes
+2026/02/06-10:54:33.191 efaa compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/02/06-10:54:33.191 efaa Delete type=2 #16
+2026/02/06-10:54:33.191 efaa Manual compaction at level-1 from '\x00\x0d\x00\x00\xc8\x0d\x00l\x00o\x00c\x00a\x00l\x00_\x00s\x00t\x00o\x00r\x00a\x00g\x00e' @ 8864 : 0 .. '\x00\x0e\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/02/06-10:54:33.192 efaa Level-0 table #19: started
+2026/02/06-10:54:33.193 efaa Level-0 table #19: 10557 bytes OK
+2026/02/06-10:54:33.193 efaa Delete type=2 #14
+2026/02/06-10:54:33.193 efaa Delete type=0 #15
+2026/02/06-10:54:33.194 efaa Manual compaction at level-0 from '\x00\x01\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x02\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/02/06-10:54:33.194 efaa Manual compaction at level-1 from '\x00\x01\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x02\x00\x00\x00' @ 0 : 0; will stop at '\x00\x01\x0a\x02\x03\x00\x00\x00\x00\x00\x00\x00@' @ 9452 : 0
+2026/02/06-10:54:33.194 efaa Compacting 1@1 + 1@2 files
+2026/02/06-10:54:33.195 efaa Generated table #20@1: 328 keys, 4637 bytes
+2026/02/06-10:54:33.195 efaa Compacted 1@1 + 1@2 files => 4637 bytes
+2026/02/06-10:54:33.196 efaa compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/02/06-10:54:33.196 efaa Delete type=2 #19
+2026/02/06-10:54:33.196 efaa Manual compaction at level-1 from '\x00\x01\x0a\x02\x03\x00\x00\x00\x00\x00\x00\x00@' @ 9452 : 0 .. '\x00\x02\x00\x00\x00' @ 0 : 0; will stop at (end)

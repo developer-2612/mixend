@@ -556,6 +556,10 @@ img, video {
   max-width: 28rem;
 }
 
+.max-w-sm {
+  max-width: 24rem;
+}
+
 .max-w-xs {
   max-width: 20rem;
 }
@@ -874,6 +878,10 @@ img, video {
 
 .bg-black\/40 {
   background-color: #0006;
+}
+
+.bg-black\/50 {
+  background-color: #00000080;
 }
 
 .bg-blue-100 {
@@ -1515,6 +1523,26 @@ button {
 
 .fade-in {
   animation: .3s fadeIn;
+}
+
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(.92)translateY(8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1)translateY(0);
+  }
+}
+
+.popup-animate {
+  animation: .22s ease-out popIn;
+}
+
+.popup-overlay {
+  animation: .2s ease-out fadeIn;
 }
 
 .after\:absolute:after {

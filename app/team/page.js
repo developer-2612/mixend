@@ -6,7 +6,6 @@ import Badge from '../components/common/Badge.jsx';
 import Loader from '../components/common/Loader.jsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserPlus, faEnvelope, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons';
-import { teamService } from '../../lib/mock-services.js';
 
 export default function TeamPage() {
   const [team, setTeam] = useState([]);
@@ -18,8 +17,9 @@ export default function TeamPage() {
 
   const fetchTeam = async () => {
     try {
-      const response = await teamService.getAll();
-      setTeam(response.data.users);
+      const response = await fetch('/api/team', { credentials: 'include' });
+      const data = await response.json();
+      setTeam(data.data || []);
     } catch (error) {
       console.error('Error fetching team:', error);
     } finally {
@@ -30,7 +30,7 @@ export default function TeamPage() {
   const roleColors = {
     admin: 'orange',
     manager: 'blue',
-    agent: 'green'
+    agent: 'green',
   };
 
   if (loading) {
@@ -87,7 +87,7 @@ export default function TeamPage() {
                 </div>
                 <div>
                   <h3 className="font-bold text-aa-dark-blue">{member.name}</h3>
-                  <Badge variant={roleColors[member.role]}>{member.role}</Badge>
+                  <Badge variant={roleColors[member.role] || 'default'}>{member.role || 'member'}</Badge>
                 </div>
               </div>
               <button className="p-2 hover:bg-gray-100 rounded-lg">
@@ -98,7 +98,7 @@ export default function TeamPage() {
             <div className="space-y-2 mb-4">
               <div className="flex items-center gap-2 text-sm text-aa-gray">
                 <FontAwesomeIcon icon={faEnvelope} style={{ fontSize: 14 }} />
-                {member.email}
+                {member.email || '—'}
               </div>
               <div className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${member.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`}></span>
@@ -109,15 +109,17 @@ export default function TeamPage() {
             <div className="pt-4 border-t border-gray-100">
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <p className="text-xl font-bold text-aa-dark-blue">24</p>
+                  <p className="text-xl font-bold text-aa-dark-blue">{member.active_chats || 0}</p>
                   <p className="text-xs text-aa-gray">Active Chats</p>
                 </div>
                 <div>
-                  <p className="text-xl font-bold text-aa-orange">156</p>
+                  <p className="text-xl font-bold text-aa-orange">{member.messages_sent || 0}</p>
                   <p className="text-xs text-aa-gray">Messages</p>
                 </div>
                 <div>
-                  <p className="text-xl font-bold text-green-600">★ 4.8</p>
+                  <p className="text-xl font-bold text-green-600">
+                    {member.rating ? `★ ${member.rating}` : '—'}
+                  </p>
                   <p className="text-xs text-aa-gray">Rating</p>
                 </div>
               </div>

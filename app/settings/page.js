@@ -38,11 +38,21 @@ export default function SettingsPage() {
   const [whatsappActionStatus, setWhatsappActionStatus] = useState('');
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
+  const [passwordForm, setPasswordForm] = useState({
+    current: '',
+    next: '',
+    confirm: '',
+  });
+  const [passwordStatus, setPasswordStatus] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [whatsappConfig, setWhatsappConfig] = useState({
     phone: '+91-9876543210',
     businessName: 'AlgoAura Solutions',
     category: 'Technology',
   });
+
+  const updatePasswordField = (field) => (event) =>
+    setPasswordForm((prev) => ({ ...prev, [field]: event.target.value }));
 
   useEffect(() => {
     if (user) {
@@ -81,10 +91,13 @@ export default function SettingsPage() {
       }
     };
 
-    if (!authLoading) {
-      loadProfile();
+    if (authLoading) return;
+    if (!user) {
+      setProfileLoading(false);
+      return;
     }
-  }, [authLoading]);
+    loadProfile();
+  }, [authLoading, user]);
 
   useEffect(() => {
     let isMounted = true;
@@ -627,10 +640,76 @@ export default function SettingsPage() {
                 <div>
                   <h3 className="font-semibold text-aa-text-dark mb-4">Change Password</h3>
                   <div className="space-y-4">
-                    <Input label="Current Password" type="password" placeholder="Enter current password" />
-                    <Input label="New Password" type="password" placeholder="Enter new password" />
-                    <Input label="Confirm Password" type="password" placeholder="Confirm new password" />
-                    <Button variant="primary">Update Password</Button>
+                    <Input
+                      label="Current Password"
+                      type="password"
+                      placeholder="Enter current password"
+                      value={passwordForm.current}
+                      onChange={updatePasswordField('current')}
+                      disabled={passwordLoading}
+                    />
+                    <Input
+                      label="New Password"
+                      type="password"
+                      placeholder="Enter new password"
+                      value={passwordForm.next}
+                      onChange={updatePasswordField('next')}
+                      disabled={passwordLoading}
+                    />
+                    <Input
+                      label="Confirm Password"
+                      type="password"
+                      placeholder="Confirm new password"
+                      value={passwordForm.confirm}
+                      onChange={updatePasswordField('confirm')}
+                      disabled={passwordLoading}
+                    />
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="primary"
+                        onClick={async () => {
+                          setPasswordStatus('');
+                          if (!passwordForm.next || passwordForm.next.length < 8) {
+                            setPasswordStatus('New password must be at least 8 characters.');
+                            return;
+                          }
+                          if (passwordForm.next !== passwordForm.confirm) {
+                            setPasswordStatus('Passwords do not match.');
+                            return;
+                          }
+                          setPasswordLoading(true);
+                          try {
+                            const response = await fetch('/api/profile/password', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              credentials: 'include',
+                              body: JSON.stringify({
+                                currentPassword: passwordForm.current,
+                                newPassword: passwordForm.next,
+                              }),
+                            });
+                            const data = await response.json();
+                            if (!response.ok) {
+                              throw new Error(data.error || 'Failed to update password.');
+                            }
+                            setPasswordForm({ current: '', next: '', confirm: '' });
+                            setPasswordStatus('Password updated.');
+                          } catch (error) {
+                            setPasswordStatus(error.message);
+                          } finally {
+                            setPasswordLoading(false);
+                          }
+                        }}
+                        disabled={passwordLoading}
+                      >
+                        {passwordLoading ? 'Updating...' : 'Update Password'}
+                      </Button>
+                      {passwordStatus && (
+                        <span className={`text-sm font-semibold ${passwordStatus.includes('updated') ? 'text-green-600' : 'text-red-600'}`}>
+                          {passwordStatus}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

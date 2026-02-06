@@ -19,6 +19,8 @@ export default function SignupPage() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showExistsPopup, setShowExistsPopup] = useState(false);
+  const [existsMessage, setExistsMessage] = useState('');
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -57,6 +59,21 @@ export default function SignupPage() {
 
       if (!response.ok) {
         const data = await response.json();
+        if (response.status === 409) {
+          const fields = data.fields || {};
+          let message = data.error || 'Account already exists';
+          if (fields.phone && fields.email) {
+            message = 'This phone number and email already exist.';
+          } else if (fields.phone) {
+            message = 'This phone number already exists.';
+          } else if (fields.email) {
+            message = 'This email already exists.';
+          }
+          setExistsMessage(message);
+          setShowExistsPopup(true);
+          setLoading(false);
+          return;
+        }
         throw new Error(data.error || 'Signup failed');
       }
 
@@ -159,6 +176,28 @@ export default function SignupPage() {
           </p>
         </div>
       </div>
+
+      {showExistsPopup && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 popup-overlay"
+          onClick={() => setShowExistsPopup(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 popup-animate"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-bold text-aa-dark-blue mb-2">Account Already Exists</h2>
+            <p className="text-aa-gray mb-6">{existsMessage}</p>
+            <button
+              type="button"
+              className="btn-primary w-full"
+              onClick={() => setShowExistsPopup(false)}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

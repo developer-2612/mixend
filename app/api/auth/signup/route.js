@@ -22,13 +22,23 @@ export async function POST(request) {
 
     try {
       const [existing] = await connection.execute(
-        `SELECT id FROM admin_accounts WHERE phone = ? OR email = ? LIMIT 1`,
+        `SELECT id, phone, email FROM admin_accounts WHERE phone = ? OR email = ?`,
         [phone, email]
       );
 
       if (existing.length > 0) {
+        const phoneExists = existing.some((row) => row.phone === phone);
+        const emailExists = email
+          ? existing.some((row) => row.email === email)
+          : false;
         return NextResponse.json(
-          { error: 'An account with this phone or email already exists' },
+          {
+            error: 'An account with this phone or email already exists',
+            fields: {
+              phone: phoneExists,
+              email: emailExists,
+            },
+          },
           { status: 409 }
         );
       }

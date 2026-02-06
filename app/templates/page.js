@@ -14,7 +14,6 @@ import {
   faTrashCan,
   faFileLines,
 } from '@fortawesome/free-solid-svg-icons';
-import { templateService } from '../../lib/mock-services.js';
 
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState([]);
@@ -28,8 +27,9 @@ export default function TemplatesPage() {
 
   const fetchTemplates = async () => {
     try {
-      const response = await templateService.getAll();
-      setTemplates(response.data.templates);
+      const response = await fetch('/api/templates', { credentials: 'include' });
+      const data = await response.json();
+      setTemplates(data.data || []);
     } catch (error) {
       console.error('Error fetching templates:', error);
     } finally {
@@ -41,10 +41,21 @@ export default function TemplatesPage() {
     e.preventDefault();
     try {
       const variablesArray = newTemplate.variables.split(',').map(v => v.trim()).filter(v => v);
-      await templateService.create({
-        ...newTemplate,
-        variables: variablesArray
+      const response = await fetch('/api/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: newTemplate.name,
+          category: newTemplate.category,
+          content: newTemplate.content,
+          variables: variablesArray,
+        }),
       });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create template');
+      }
       setShowCreateModal(false);
       setNewTemplate({ name: '', category: '', content: '', variables: '' });
       fetchTemplates();

@@ -109,6 +109,17 @@ export const getWhatsAppState = () => ({
 const users = Object.create(null);
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
+const getDefaultAdminId = async () => {
+  const [rows] = await db.query(
+    `SELECT id
+     FROM admin_accounts
+     WHERE status = 'active'
+     ORDER BY (admin_tier = 'super_admin') DESC, created_at ASC
+     LIMIT 1`
+  );
+  return rows[0]?.id || null;
+};
+
 /* ===============================
    🔥 AUTOMATION LOGIC
    =============================== */
@@ -130,12 +141,13 @@ client.on("message", async (message) => {
        🔍 CHECK USER IN DB
        =============================== */
     const [rows] = await db.query(
-      "SELECT id, name, email FROM clients WHERE phone = ?",
+      "SELECT id, name, email, assigned_admin_id FROM users WHERE phone = ?",
       [phone]
     );
 
     const isReturningUser = rows.length > 0;
     const existingUser = isReturningUser ? rows[0] : null;
+    const assignedAdminId = existingUser?.assigned_admin_id || (await getDefaultAdminId());
 
     /* ===============================
        INIT USER SESSION
@@ -147,6 +159,7 @@ client.on("message", async (message) => {
         isReturningUser,
         clientId: isReturningUser ? existingUser.id : null,
         name: isReturningUser ? existingUser.name : null,
+        assignedAdminId,
       };
     }
 
@@ -273,16 +286,27 @@ client.on("message", async (message) => {
       user.data.message = text;
 
       let clientId = user.clientId;
+      let adminId = user.assignedAdminId || assignedAdminId;
+
+      if (!adminId) {
+        console.error("❌ No admin account available to assign this user.");
+        await client.sendMessage(
+          from,
+          "We are setting up your account. Please try again later."
+        );
+        delete users[from];
+        return;
+      }
 
       // INSERT CLIENT IF NEW
       if (!user.isReturningUser) {
         const [result] = await db.query(
-          "INSERT INTO clients (name, phone, email, reason) VALUES (?, ?, ?, ?)",
+          "INSERT INTO users (name, phone, email, assigned_admin_id) VALUES (?, ?, ?, ?)",
           [
             user.data.name,
             phone,
             user.data.email,
-            user.data.reason,
+            adminId,
           ]
         );
         clientId = result.insertId;
@@ -290,8 +314,15 @@ client.on("message", async (message) => {
 
       // SAVE MESSAGE
       await db.query(
-        "INSERT INTO messages (client_id, direction, message) VALUES (?, 'incoming', ?)",
-        [clientId, user.data.message]
+        `INSERT INTO messages (user_id, admin_id, message_text, message_type, status)
+         VALUES (?, ?, ?, 'incoming', 'delivered')`,
+        [clientId, adminId, user.data.message]
+      );
+
+      await db.query(
+        `INSERT INTO user_requirements (user_id, requirement_text, category, status)
+         VALUES (?, ?, ?, 'pending')`,
+        [clientId, user.data.message, user.data.reason]
       );
 
       console.log(

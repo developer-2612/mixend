@@ -12,7 +12,6 @@ import {
   faBullseye,
 } from '@fortawesome/free-solid-svg-icons';
 import Button from '../components/common/Button.jsx';
-import { reportService } from '../../lib/mock-services.js';
 
 export default function ReportsPage() {
   const [reports, setReports] = useState(null);
@@ -21,12 +20,16 @@ export default function ReportsPage() {
 
   useEffect(() => {
     fetchReports();
-  }, []);
+  }, [dateRange]);
 
   const fetchReports = async () => {
+    setLoading(true);
     try {
-      const response = await reportService.getOverview();
-      setReports(response.data);
+      const response = await fetch(`/api/reports/overview?range=${dateRange}`, {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      setReports(data.data || null);
     } catch (error) {
       console.error('Error fetching reports:', error);
     } finally {
@@ -53,6 +56,16 @@ export default function ReportsPage() {
   })) || [];
 
   const COLORS = ['#FF6B00', '#0A1F44', '#4CAF50', '#FFC107', '#F44336', '#2196F3'];
+  const totalMessages = messageChartData.reduce((sum, item) => sum + item.messages, 0);
+  const totalLeads = leadChartData.reduce((sum, item) => sum + item.value, 0);
+  const completedLeads = leadChartData.find(item => item.name.toLowerCase() === 'completed')?.value || 0;
+  const conversionRate = totalLeads > 0 ? ((completedLeads / totalLeads) * 100).toFixed(1) : '0.0';
+  const rangeLabel = {
+    '7days': 'Last 7 days',
+    '30days': 'Last 30 days',
+    '90days': 'Last 90 days',
+    '1year': 'Last year',
+  }[dateRange] || 'Last 7 days';
 
   return (
     <div className="space-y-6" data-testid="reports-page">
@@ -89,9 +102,9 @@ export default function ReportsPage() {
             <div>
               <p className="text-aa-gray text-sm font-semibold mb-1">Total Messages</p>
               <h3 className="text-3xl font-bold text-aa-dark-blue">
-                {messageChartData.reduce((sum, item) => sum + item.messages, 0)}
+                {totalMessages}
               </h3>
-              <p className="text-sm text-green-600 font-semibold mt-1">↑ 12.5%</p>
+              <p className="text-sm text-aa-gray font-semibold mt-1">{rangeLabel}</p>
             </div>
             <div className="w-12 h-12 bg-aa-orange/10 rounded-lg flex items-center justify-center">
               <FontAwesomeIcon icon={faMessage} className="text-aa-orange" style={{ fontSize: 24 }} />
@@ -104,9 +117,9 @@ export default function ReportsPage() {
             <div>
               <p className="text-aa-gray text-sm font-semibold mb-1">Total Leads</p>
               <h3 className="text-3xl font-bold text-aa-dark-blue">
-                {leadChartData.reduce((sum, item) => sum + item.value, 0)}
+                {totalLeads}
               </h3>
-              <p className="text-sm text-green-600 font-semibold mt-1">↑ 23.1%</p>
+              <p className="text-sm text-aa-gray font-semibold mt-1">All statuses</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <FontAwesomeIcon icon={faBullseye} className="text-aa-dark-blue" style={{ fontSize: 24 }} />
@@ -118,8 +131,8 @@ export default function ReportsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-aa-gray text-sm font-semibold mb-1">Conversion Rate</p>
-              <h3 className="text-3xl font-bold text-aa-dark-blue">32.5%</h3>
-              <p className="text-sm text-green-600 font-semibold mt-1">↑ 5.2%</p>
+              <h3 className="text-3xl font-bold text-aa-dark-blue">{conversionRate}%</h3>
+              <p className="text-sm text-aa-gray font-semibold mt-1">Completed / Total</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <FontAwesomeIcon icon={faChartLine} className="text-green-600" style={{ fontSize: 24 }} />
@@ -221,12 +234,16 @@ export default function ReportsPage() {
                   </td>
                   <td className="py-4 px-4 font-semibold text-aa-dark-blue">{agent.active_chats}</td>
                   <td className="py-4 px-4 font-semibold text-aa-orange">{agent.messages_sent}</td>
-                  <td className="py-4 px-4 text-aa-gray">2.5 mins</td>
+                  <td className="py-4 px-4 text-aa-gray">{agent.response_time || '—'}</td>
                   <td className="py-4 px-4">
-                    <span className="text-green-600 font-semibold">85%</span>
+                    <span className="text-green-600 font-semibold">
+                      {agent.resolution_rate ? `${agent.resolution_rate}%` : '—'}
+                    </span>
                   </td>
                   <td className="py-4 px-4">
-                    <span className="text-yellow-600 font-semibold">★ 4.7</span>
+                    <span className="text-yellow-600 font-semibold">
+                      {agent.rating ? `★ ${agent.rating}` : '—'}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -240,40 +257,47 @@ export default function ReportsPage() {
         <Card>
           <h3 className="text-xl font-bold text-aa-dark-blue mb-4">Top Campaigns</h3>
           <div className="space-y-4">
-            {['New Year Sale', 'Product Launch', 'Summer Offer'].map((campaign, idx) => (
-              <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-semibold text-aa-text-dark">{campaign}</p>
-                  <p className="text-xs text-aa-gray mt-1">Sent to 500 contacts</p>
+            {(reports?.topCampaigns || []).length === 0 ? (
+              <p className="text-sm text-aa-gray">No campaign data yet.</p>
+            ) : (
+              (reports?.topCampaigns || []).map((campaign) => (
+                <div key={campaign.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-semibold text-aa-text-dark">{campaign.title}</p>
+                    <p className="text-xs text-aa-gray mt-1">Sent to {campaign.sent_count || 0} contacts</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-aa-orange">
+                      {campaign.sent_count > 0
+                        ? `${Math.round((campaign.delivered_count / campaign.sent_count) * 100)}%`
+                        : '0%'}
+                    </p>
+                    <p className="text-xs text-aa-gray">Delivery Rate</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-aa-orange">45%</p>
-                  <p className="text-xs text-aa-gray">Open Rate</p>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </Card>
 
         <Card>
           <h3 className="text-xl font-bold text-aa-dark-blue mb-4">Revenue by Source</h3>
           <div className="space-y-4">
-            {[
-              { source: 'WhatsApp', revenue: '$45,000', percentage: 45, color: 'bg-aa-orange' },
-              { source: 'Website', revenue: '$30,000', percentage: 30, color: 'bg-aa-dark-blue' },
-              { source: 'Referral', revenue: '$15,000', percentage: 15, color: 'bg-green-500' },
-              { source: 'Other', revenue: '$10,000', percentage: 10, color: 'bg-gray-400' }
-            ].map((item, idx) => (
-              <div key={idx}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-aa-text-dark">{item.source}</span>
-                  <span className="text-sm font-bold text-aa-orange">{item.revenue}</span>
+            {(reports?.revenueSources || []).length === 0 ? (
+              <p className="text-sm text-aa-gray">No revenue data available.</p>
+            ) : (
+              (reports?.revenueSources || []).map((item, idx) => (
+                <div key={idx}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-aa-text-dark">{item.source}</span>
+                    <span className="text-sm font-bold text-aa-orange">{item.revenue}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className={`${item.color || 'bg-aa-orange'} h-2 rounded-full`} style={{ width: `${item.percentage || 0}%` }}></div>
+                  </div>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className={`${item.color} h-2 rounded-full`} style={{ width: `${item.percentage}%` }}></div>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </Card>
       </div>

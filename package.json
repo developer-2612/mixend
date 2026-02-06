@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "setup-db": "node db/seed.js",
-    "seed-data": "node -e \"import('./db/dummy-data.js').then(m => m.insertDummyData())\"",
     "backend": "nodemon src/server.js",
     "dev": "npm run setup-db && next dev",
     "build": "next build",
@@ -23,6 +22,7 @@
     "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.16.3",
     "next": "^16.1.6",
+    "nodemailer": "^6.9.13",
     "phpass": "^0.1.1",
     "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",

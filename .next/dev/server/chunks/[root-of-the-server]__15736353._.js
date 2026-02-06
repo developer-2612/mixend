@@ -147,20 +147,36 @@ __turbopack_context__.s([
     ()=>addMessage,
     "addUser",
     ()=>addUser,
+    "createBroadcast",
+    ()=>createBroadcast,
+    "createTemplate",
+    ()=>createTemplate,
     "getAdminById",
     ()=>getAdminById,
+    "getAllBroadcasts",
+    ()=>getAllBroadcasts,
     "getAllMessages",
     ()=>getAllMessages,
     "getAllNeeds",
     ()=>getAllNeeds,
     "getAllRequirements",
     ()=>getAllRequirements,
+    "getAllTemplates",
+    ()=>getAllTemplates,
     "getAllUsers",
     ()=>getAllUsers,
+    "getBroadcastById",
+    ()=>getBroadcastById,
     "getDashboardStats",
     ()=>getDashboardStats,
     "getMessagesForUser",
     ()=>getMessagesForUser,
+    "getReportOverview",
+    ()=>getReportOverview,
+    "getTeamMembers",
+    ()=>getTeamMembers,
+    "getTemplateById",
+    ()=>getTemplateById,
     "getUserById",
     ()=>getUserById,
     "updateAdminProfile",
@@ -363,6 +379,191 @@ async function updateAdminProfile(adminId, { name, email }) {
         values.push(adminId);
         await connection.query(`UPDATE admin_accounts SET ${updates.join(', ')} WHERE id = ?`, values);
         return await getAdminById(adminId);
+    } finally{
+        connection.release();
+    }
+}
+function parseTemplateVariables(value) {
+    if (!value) return [];
+    try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+        return [];
+    }
+}
+async function getAllBroadcasts() {
+    const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
+    try {
+        const [rows] = await connection.query(`
+      SELECT b.*, a.name as created_by_name
+      FROM broadcasts b
+      LEFT JOIN admin_accounts a ON b.created_by = a.id
+      ORDER BY b.created_at DESC
+    `);
+        return rows;
+    } finally{
+        connection.release();
+    }
+}
+async function getBroadcastById(broadcastId) {
+    const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
+    try {
+        const [rows] = await connection.query(`SELECT b.*, a.name as created_by_name
+       FROM broadcasts b
+       LEFT JOIN admin_accounts a ON b.created_by = a.id
+       WHERE b.id = ?
+       LIMIT 1`, [
+            broadcastId
+        ]);
+        return rows[0] || null;
+    } finally{
+        connection.release();
+    }
+}
+async function createBroadcast({ title, message, targetAudienceType, scheduledAt, status, createdBy }) {
+    const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
+    try {
+        const [result] = await connection.query(`INSERT INTO broadcasts
+       (title, message, target_audience_type, scheduled_at, status, created_by)
+       VALUES (?, ?, ?, ?, ?, ?)`, [
+            title,
+            message,
+            targetAudienceType || 'all',
+            scheduledAt || null,
+            status || 'draft',
+            createdBy || null
+        ]);
+        return await getBroadcastById(result.insertId);
+    } finally{
+        connection.release();
+    }
+}
+async function getAllTemplates() {
+    const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
+    try {
+        const [rows] = await connection.query(`
+      SELECT t.*, a.name as created_by_name
+      FROM message_templates t
+      LEFT JOIN admin_accounts a ON t.created_by = a.id
+      ORDER BY t.created_at DESC
+    `);
+        return rows.map((row)=>({
+                ...row,
+                variables: parseTemplateVariables(row.variables_json)
+            }));
+    } finally{
+        connection.release();
+    }
+}
+async function getTemplateById(templateId) {
+    const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
+    try {
+        const [rows] = await connection.query(`SELECT t.*, a.name as created_by_name
+       FROM message_templates t
+       LEFT JOIN admin_accounts a ON t.created_by = a.id
+       WHERE t.id = ?
+       LIMIT 1`, [
+            templateId
+        ]);
+        const row = rows[0];
+        if (!row) return null;
+        return {
+            ...row,
+            variables: parseTemplateVariables(row.variables_json)
+        };
+    } finally{
+        connection.release();
+    }
+}
+async function createTemplate({ name, category, content, variables, createdBy }) {
+    const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
+    try {
+        const variablesJson = Array.isArray(variables) ? JSON.stringify(variables) : null;
+        const [result] = await connection.query(`INSERT INTO message_templates (name, category, content, variables_json, created_by)
+       VALUES (?, ?, ?, ?, ?)`, [
+            name,
+            category,
+            content,
+            variablesJson,
+            createdBy || null
+        ]);
+        return await getTemplateById(result.insertId);
+    } finally{
+        connection.release();
+    }
+}
+async function getTeamMembers() {
+    const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
+    try {
+        const [rows] = await connection.query(`
+      SELECT
+        a.id,
+        a.name,
+        a.email,
+        a.admin_tier,
+        a.status,
+        SUM(CASE WHEN m.message_type = 'outgoing' THEN 1 ELSE 0 END) AS messages_sent,
+        COUNT(DISTINCT CASE
+          WHEN m.created_at >= (NOW() - INTERVAL 7 DAY) THEN m.user_id
+          ELSE NULL
+        END) AS active_chats
+      FROM admin_accounts a
+      LEFT JOIN messages m ON m.admin_id = a.id
+      GROUP BY a.id
+      ORDER BY a.created_at DESC
+    `);
+        return rows;
+    } finally{
+        connection.release();
+    }
+}
+async function getReportOverview(startDate) {
+    const connection = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$db$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getConnection"])();
+    try {
+        const [messageStats] = await connection.query(`
+        SELECT DATE(created_at) as date, COUNT(*) as count
+        FROM messages
+        WHERE created_at >= ?
+        GROUP BY DATE(created_at)
+        ORDER BY DATE(created_at)
+      `, [
+            startDate
+        ]);
+        const [leadStats] = await connection.query(`
+        SELECT status, COUNT(*) as count
+        FROM user_requirements
+        GROUP BY status
+      `);
+        const [agentPerformance] = await connection.query(`
+      SELECT
+        a.id,
+        a.name,
+        a.admin_tier,
+        a.status,
+        SUM(CASE WHEN m.message_type = 'outgoing' THEN 1 ELSE 0 END) AS messages_sent,
+        COUNT(DISTINCT CASE
+          WHEN m.created_at >= (NOW() - INTERVAL 7 DAY) THEN m.user_id
+          ELSE NULL
+        END) AS active_chats
+      FROM admin_accounts a
+      LEFT JOIN messages m ON m.admin_id = a.id
+      GROUP BY a.id
+      ORDER BY a.created_at DESC
+    `);
+        const [topCampaigns] = await connection.query(`
+      SELECT id, title, status, sent_count, delivered_count, created_at
+      FROM broadcasts
+      ORDER BY sent_count DESC, created_at DESC
+      LIMIT 5
+    `);
+        return {
+            messageStats,
+            leadStats,
+            agentPerformance,
+            topCampaigns,
+            revenueSources: []
+        };
     } finally{
         connection.release();
     }
