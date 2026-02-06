@@ -1,18 +1,27 @@
-import mysql from "mysql2/promise";
+import pg from "pg";
 import dotenv from "dotenv";
 
-// Load environment variables
 dotenv.config();
 
-export const db = await mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+const { Pool } = pg;
 
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
 });
 
-console.log("✅ Database pool initialized");
+const formatQuery = (text, params = []) => {
+  if (!params.length) return text;
+  let index = 0;
+  return text.replace(/\?/g, () => `$${++index}`);
+};
+
+export const db = {
+  query: async (text, params = []) => {
+    const sql = formatQuery(text, params);
+    const result = await pool.query(sql, params);
+    return [result.rows, result];
+  },
+};
+
+console.log("✅ Postgres pool initialized");

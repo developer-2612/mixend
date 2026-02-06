@@ -510,15 +510,32 @@ const buildRequirementSummary = ({ user, phone }) => {
   return lines.join("\n");
 };
 
-const promptForName = async ({ user, from, client }) => {
+const logMessage = async ({ userId, adminId, text, type }) => {
+  if (!userId || !adminId || !text) return;
+  await db.query(
+    `INSERT INTO messages (user_id, admin_id, message_text, message_type, status)
+     VALUES (?, ?, ?, ?, 'delivered')`,
+    [userId, adminId, text, type]
+  );
+};
+
+const logIncomingMessage = async ({ userId, adminId, text }) =>
+  logMessage({ userId, adminId, text, type: "incoming" });
+
+const sendAndLog = async ({ client, from, userId, adminId, text }) => {
+  await client.sendMessage(from, text);
+  await logMessage({ userId, adminId, text, type: "outgoing" });
+};
+
+const promptForName = async ({ user, sendMessage }) => {
   await delay(1000);
-  await client.sendMessage(from, "May I know your *name*?");
+  await sendMessage("May I know your *name*?");
   user.step = "ASK_NAME";
 };
 
-const promptForEmail = async ({ user, from, client }) => {
+const promptForEmail = async ({ user, sendMessage }) => {
   await delay(1000);
-  await client.sendMessage(from, "Could you please share your *email address*?");
+  await sendMessage("Could you please share your *email address*?");
   user.step = "ASK_EMAIL";
 };
 
@@ -529,24 +546,25 @@ const maybeFinalizeLead = async ({
   assignedAdminId,
   client,
   users,
+  sendMessage,
 }) => {
   const hasName = Boolean(user.name || user.data.name);
   const hasEmail = Boolean(user.email || user.data.email);
 
   if (!hasName) {
     user.data.pendingFinalize = true;
-    await promptForName({ user, from, client });
+    await promptForName({ user, sendMessage });
     return;
   }
 
   if (!hasEmail) {
     user.data.pendingFinalize = true;
-    await promptForEmail({ user, from, client });
+    await promptForEmail({ user, sendMessage });
     return;
   }
 
   user.data.message = buildRequirementSummary({ user, phone });
-  await finalizeLead({ user, from, phone, assignedAdminId, client, users });
+  await finalizeLead({ user, from, phone, assignedAdminId, client, users, sendMessage });
 };
 
 const savePartialLead = async ({ user, phone, assignedAdminId }) => {
@@ -555,12 +573,6 @@ const savePartialLead = async ({ user, phone, assignedAdminId }) => {
 
   const summary = buildRequirementSummary({ user, phone });
   const category = user.data.reason ? `Partial - ${user.data.reason}` : "Partial";
-
-  await db.query(
-    `INSERT INTO messages (user_id, admin_id, message_text, message_type, status)
-     VALUES (?, ?, ?, 'incoming', 'delivered')`,
-    [user.clientId, adminId, summary]
-  );
 
   await db.query(
     `INSERT INTO user_requirements (user_id, requirement_text, category, status)
@@ -588,60 +600,55 @@ const scheduleIdleSave = ({ user, phone, assignedAdminId }) => {
   }, TWO_MINUTES_MS);
 };
 
-const sendResumePrompt = async ({ user, from, client }) => {
+const sendResumePrompt = async ({ user, sendMessage }) => {
   switch (user.step) {
     case "SERVICES_MENU":
-      await client.sendMessage(from, SERVICES_MENU_TEXT);
+      await sendMessage(SERVICES_MENU_TEXT);
       return;
     case "PRODUCTS_MENU":
-      await client.sendMessage(from, PRODUCTS_MENU_TEXT);
+      await sendMessage(PRODUCTS_MENU_TEXT);
       return;
     case "SERVICE_DETAILS": {
       const serviceOption = SERVICE_OPTIONS.find(
         (option) => option.label === user.data.serviceType
       );
-      await client.sendMessage(
-        from,
+      await sendMessage(
         serviceOption?.prompt ||
           "Please share your service details (DOB, time, place, and concern)."
       );
       return;
     }
     case "PRODUCT_REQUIREMENTS":
-      await client.sendMessage(from, PRODUCT_DETAILS_PROMPT);
+      await sendMessage(PRODUCT_DETAILS_PROMPT);
       return;
     case "PRODUCT_ADDRESS":
-      await client.sendMessage(
-        from,
+      await sendMessage(
         "Please share your *full delivery address with pin code* (पूरा पता + पिन कोड)."
       );
       return;
     case "PRODUCT_ALT_CONTACT":
-      await client.sendMessage(
-        from,
+      await sendMessage(
         "Alternate contact number (optional). If none, reply *NA*."
       );
       return;
     case "EXECUTIVE_MESSAGE":
-      await client.sendMessage(
-        from,
+      await sendMessage(
         "Sure 👍\nPlease tell us briefly *how we can help you today*."
       );
       return;
     case "ASK_NAME":
-      await client.sendMessage(from, "May I know your *name*?");
+      await sendMessage("May I know your *name*?");
       return;
     case "ASK_EMAIL":
-      await client.sendMessage(from, "Could you please share your *email address*?");
+      await sendMessage("Could you please share your *email address*?");
       return;
     case "MENU":
-      await client.sendMessage(
-        from,
+      await sendMessage(
         user.isReturningUser && user.name ? returningMenuText(user.name) : MAIN_MENU_TEXT
       );
       return;
     default:
-      await client.sendMessage(from, MAIN_MENU_TEXT);
+      await sendMessage(MAIN_MENU_TEXT);
   }
 };
 
@@ -652,6 +659,7 @@ const finalizeLead = async ({
   assignedAdminId,
   client,
   users,
+  sendMessage,
 }) => {
   let clientId = user.clientId;
   const adminId = user.assignedAdminId || assignedAdminId;
@@ -659,11 +667,11 @@ const finalizeLead = async ({
   const email = user.email || user.data.email || null;
 
   if (!clientId) {
-    const [result] = await db.query(
-      "INSERT INTO users (name, phone, email, assigned_admin_id) VALUES (?, ?, ?, ?)",
+    const [rows] = await db.query(
+      "INSERT INTO users (name, phone, email, assigned_admin_id) VALUES (?, ?, ?, ?) RETURNING id",
       [displayName, phone, email, adminId]
     );
-    clientId = result.insertId;
+    clientId = rows[0]?.id || null;
   }
   if (clientId) {
     await db.query(
@@ -675,12 +683,6 @@ const finalizeLead = async ({
   const requirementText = user.data.message || buildRequirementSummary({ user, phone });
   const requirementCategory =
     user.data.serviceType || user.data.productType || user.data.reason || "General";
-
-  await db.query(
-    `INSERT INTO messages (user_id, admin_id, message_text, message_type, status)
-     VALUES (?, ?, ?, 'incoming', 'delivered')`,
-    [clientId, adminId, requirementText]
-  );
 
   await db.query(
     `INSERT INTO user_requirements (user_id, requirement_text, category, status)
@@ -695,10 +697,7 @@ const finalizeLead = async ({
   );
 
   await delay(1000);
-  await client.sendMessage(
-    from,
-    `Thank you ${displayName} 😊\nOur team will contact you shortly.`
-  );
+  await sendMessage(`Thank you ${displayName} 😊\nOur team will contact you shortly.`);
 
   if (user.idleTimer) {
     clearTimeout(user.idleTimer);
@@ -757,12 +756,12 @@ function attachAutomationHandlers(session) {
 
     if (!isReturningUser) {
       try {
-        const [result] = await db.query(
-          "INSERT INTO users (phone, assigned_admin_id) VALUES (?, ?)",
+        const [rows] = await db.query(
+          "INSERT INTO users (phone, assigned_admin_id) VALUES (?, ?) RETURNING id",
           [phone, assignedAdminId]
         );
         existingUser = {
-          id: result.insertId,
+          id: rows[0]?.id || null,
           name: null,
           email: null,
           assigned_admin_id: assignedAdminId,
@@ -806,6 +805,20 @@ function attachAutomationHandlers(session) {
     }
 
     const user = users[from];
+    const sendMessage = async (messageText) =>
+      sendAndLog({
+        client,
+        from,
+        userId: user.clientId,
+        adminId: assignedAdminId,
+        text: messageText,
+      });
+
+    await logIncomingMessage({
+      userId: user.clientId,
+      adminId: assignedAdminId,
+      text,
+    });
 
     const now = Date.now();
     const lastMessageAt = user.lastUserMessageAt;
@@ -821,8 +834,7 @@ function attachAutomationHandlers(session) {
 
       const nameLine = user.name ? `Nice to hear from you again, ${user.name} 😊\n` : "";
       await delay(500);
-      await client.sendMessage(
-        from,
+      await sendMessage(
         `${nameLine}Do you want to continue the last conversation or start again?\n1️⃣ Continue\n2️⃣ Start again`
       );
       if (user.name) {
@@ -837,7 +849,7 @@ function attachAutomationHandlers(session) {
 
     if (user.isReturningUser && user.name && !user.greetedThisSession) {
       await delay(500);
-      await client.sendMessage(from, `Nice to hear from you, ${user.name} 😊`);
+      await sendMessage(`Nice to hear from you, ${user.name} 😊`);
       user.greetedThisSession = true;
     }
 
@@ -848,8 +860,7 @@ function attachAutomationHandlers(session) {
 
     if (isMenuCommand(lower, text)) {
       await delay(1000);
-      await client.sendMessage(
-        from,
+      await sendMessage(
         user.isReturningUser && user.name ? returningMenuText(user.name) : MAIN_MENU_TEXT
       );
       user.step = "MENU";
@@ -864,10 +875,7 @@ function attachAutomationHandlers(session) {
       const wantsRestart = ["2", "start", "restart", "new", "no", "n", "nahi"].includes(lower);
 
       if (!wantsContinue && !wantsRestart) {
-        await client.sendMessage(
-          from,
-          "Please reply with 1 to continue or 2 to start again."
-        );
+        await sendMessage("Please reply with 1 to continue or 2 to start again.");
         return;
       }
 
@@ -877,7 +885,7 @@ function attachAutomationHandlers(session) {
         user.awaitingResumeDecision = false;
         user.step = "START";
         await delay(1000);
-        await client.sendMessage(from, MAIN_MENU_TEXT);
+        await sendMessage(MAIN_MENU_TEXT);
         user.step = "MENU";
         return;
       }
@@ -886,7 +894,7 @@ function attachAutomationHandlers(session) {
       user.resumeStep = null;
       user.awaitingResumeDecision = false;
       await delay(1000);
-      await sendResumePrompt({ user, from, client });
+      await sendResumePrompt({ user, sendMessage });
       return;
     }
 
@@ -915,20 +923,17 @@ function attachAutomationHandlers(session) {
       if (resolvedIntent === "SERVICES") {
         user.data.reason = "Services";
         if (matchedService && matchedService.id === "executive") {
-          await client.sendMessage(
-            from,
-            "Sure 👍\nPlease tell us briefly *how we can help you today*."
-          );
+          await sendMessage("Sure 👍\nPlease tell us briefly *how we can help you today*.");
           user.step = "EXECUTIVE_MESSAGE";
           return;
         }
         if (matchedService && matchedService.id !== "main_menu" && matchedService.prompt) {
           user.data.serviceType = matchedService.label;
-          await client.sendMessage(from, matchedService.prompt);
+          await sendMessage(matchedService.prompt);
           user.step = "SERVICE_DETAILS";
           return;
         }
-        await client.sendMessage(from, SERVICES_MENU_TEXT);
+        await sendMessage(SERVICES_MENU_TEXT);
         user.step = "SERVICES_MENU";
         return;
       }
@@ -936,25 +941,22 @@ function attachAutomationHandlers(session) {
         user.data.reason = "Products";
         if (matchedProduct && matchedProduct.id !== "main_menu") {
           user.data.productType = matchedProduct.label;
-          await client.sendMessage(from, PRODUCT_DETAILS_PROMPT);
+          await sendMessage(PRODUCT_DETAILS_PROMPT);
           user.step = "PRODUCT_REQUIREMENTS";
           return;
         }
-        await client.sendMessage(from, PRODUCTS_MENU_TEXT);
+        await sendMessage(PRODUCTS_MENU_TEXT);
         user.step = "PRODUCTS_MENU";
         return;
       }
       if (resolvedIntent === "EXECUTIVE") {
         user.data.reason = "Talk to an Executive";
-        await client.sendMessage(
-          from,
-          "Sure 👍\nPlease tell us briefly *how we can help you today*."
-        );
+        await sendMessage("Sure 👍\nPlease tell us briefly *how we can help you today*.");
         user.step = "EXECUTIVE_MESSAGE";
         return;
       }
 
-      await client.sendMessage(from, MAIN_MENU_TEXT);
+      await sendMessage(MAIN_MENU_TEXT);
       user.step = "MENU";
       return;
     }
@@ -964,7 +966,7 @@ function attachAutomationHandlers(session) {
        =============================== */
     if (user.step === "MENU" && user.isReturningUser && (lower === "hi" || lower === "hello")) {
       await delay(1000);
-      await client.sendMessage(from, returningMenuText(user.name));
+      await sendMessage(returningMenuText(user.name));
       return;
     }
 
@@ -990,10 +992,7 @@ function attachAutomationHandlers(session) {
       }
 
       if (!mainChoice) {
-        await client.sendMessage(
-          from,
-          "Please reply with 1, 2, or 3, or type your need 🙂"
-        );
+        await sendMessage("Please reply with 1, 2, or 3, or type your need 🙂");
         return;
       }
 
@@ -1006,17 +1005,13 @@ function attachAutomationHandlers(session) {
 
       await delay(1000);
       if (mainChoice === "SERVICES" && matchedService && matchedService.id === "executive") {
-        await client.sendMessage(
-          from,
-          "Sure 👍\nPlease tell us briefly *how we can help you today*."
-        );
+        await sendMessage("Sure 👍\nPlease tell us briefly *how we can help you today*.");
         user.step = "EXECUTIVE_MESSAGE";
         return;
       }
       if (mainChoice === "SERVICES" && matchedService && matchedService.id !== "main_menu") {
         user.data.serviceType = matchedService.label;
-        await client.sendMessage(
-          from,
+        await sendMessage(
           matchedService.prompt ||
             "Please share your service details (DOB, time, place, and concern)."
         );
@@ -1025,24 +1020,21 @@ function attachAutomationHandlers(session) {
       }
       if (mainChoice === "PRODUCTS" && matchedProduct && matchedProduct.id !== "main_menu") {
         user.data.productType = matchedProduct.label;
-        await client.sendMessage(from, PRODUCT_DETAILS_PROMPT);
+        await sendMessage(PRODUCT_DETAILS_PROMPT);
         user.step = "PRODUCT_REQUIREMENTS";
         return;
       }
       if (mainChoice === "SERVICES") {
-        await client.sendMessage(from, SERVICES_MENU_TEXT);
+        await sendMessage(SERVICES_MENU_TEXT);
         user.step = "SERVICES_MENU";
         return;
       }
       if (mainChoice === "PRODUCTS") {
-        await client.sendMessage(from, PRODUCTS_MENU_TEXT);
+        await sendMessage(PRODUCTS_MENU_TEXT);
         user.step = "PRODUCTS_MENU";
         return;
       }
-      await client.sendMessage(
-        from,
-        "Sure 👍\nPlease tell us briefly *how we can help you today*."
-      );
+      await sendMessage("Sure 👍\nPlease tell us briefly *how we can help you today*.");
       user.step = "EXECUTIVE_MESSAGE";
       return;
     }
@@ -1061,6 +1053,7 @@ function attachAutomationHandlers(session) {
         assignedAdminId,
         client,
         users,
+        sendMessage,
       });
       return;
     }
@@ -1079,6 +1072,7 @@ function attachAutomationHandlers(session) {
         assignedAdminId,
         client,
         users,
+        sendMessage,
       });
       return;
     }
@@ -1089,13 +1083,13 @@ function attachAutomationHandlers(session) {
     if (user.step === "SERVICES_MENU") {
       const selectedService = matchOption(lower, SERVICE_OPTIONS);
       if (!selectedService) {
-        await client.sendMessage(from, "Please choose a service from the menu 🙂");
+        await sendMessage("Please choose a service from the menu 🙂");
         return;
       }
 
       if (selectedService.id === "main_menu") {
         await delay(1000);
-        await client.sendMessage(from, MAIN_MENU_TEXT);
+        await sendMessage(MAIN_MENU_TEXT);
         user.step = "MENU";
         return;
       }
@@ -1103,10 +1097,7 @@ function attachAutomationHandlers(session) {
       if (selectedService.id === "executive") {
         user.data.reason = "Talk to an Executive";
         await delay(1000);
-        await client.sendMessage(
-          from,
-          "Sure 👍\nPlease tell us briefly *how we can help you today*."
-        );
+        await sendMessage("Sure 👍\nPlease tell us briefly *how we can help you today*.");
         user.step = "EXECUTIVE_MESSAGE";
         return;
       }
@@ -1115,7 +1106,7 @@ function attachAutomationHandlers(session) {
       user.data.serviceType = selectedService.label;
 
       await delay(1000);
-      await client.sendMessage(from, selectedService.prompt);
+      await sendMessage(selectedService.prompt);
       user.step = "SERVICE_DETAILS";
       return;
     }
@@ -1126,13 +1117,13 @@ function attachAutomationHandlers(session) {
     if (user.step === "PRODUCTS_MENU") {
       const selectedProduct = matchOption(lower, PRODUCT_OPTIONS);
       if (!selectedProduct) {
-        await client.sendMessage(from, "Please choose a product from the menu 🙂");
+        await sendMessage("Please choose a product from the menu 🙂");
         return;
       }
 
       if (selectedProduct.id === "main_menu") {
         await delay(1000);
-        await client.sendMessage(from, MAIN_MENU_TEXT);
+        await sendMessage(MAIN_MENU_TEXT);
         user.step = "MENU";
         return;
       }
@@ -1141,7 +1132,7 @@ function attachAutomationHandlers(session) {
       user.data.productType = selectedProduct.label;
 
       await delay(1000);
-      await client.sendMessage(from, PRODUCT_DETAILS_PROMPT);
+      await sendMessage(PRODUCT_DETAILS_PROMPT);
       user.step = "PRODUCT_REQUIREMENTS";
       return;
     }
@@ -1160,6 +1151,7 @@ function attachAutomationHandlers(session) {
         assignedAdminId,
         client,
         users,
+        sendMessage,
       });
       return;
     }
@@ -1171,8 +1163,7 @@ function attachAutomationHandlers(session) {
       user.data.productDetails = text;
 
       await delay(1000);
-      await client.sendMessage(
-        from,
+      await sendMessage(
         "Please share your *full delivery address with pin code* (पूरा पता + पिन कोड)."
       );
       user.step = "PRODUCT_ADDRESS";
@@ -1186,10 +1177,7 @@ function attachAutomationHandlers(session) {
       user.data.address = text;
 
       await delay(1000);
-      await client.sendMessage(
-        from,
-        "Alternate contact number (optional). If none, reply *NA*."
-      );
+      await sendMessage("Alternate contact number (optional). If none, reply *NA*.");
       user.step = "PRODUCT_ALT_CONTACT";
       return;
     }
@@ -1208,6 +1196,7 @@ function attachAutomationHandlers(session) {
         assignedAdminId,
         client,
         users,
+        sendMessage,
       });
       return;
     }
@@ -1226,6 +1215,7 @@ function attachAutomationHandlers(session) {
         assignedAdminId,
         client,
         users,
+        sendMessage,
       });
       return;
     }

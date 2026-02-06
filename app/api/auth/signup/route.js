@@ -58,14 +58,16 @@ export async function POST(request) {
 
       const passwordHash = hashPassword(password);
 
-      const [result] = await connection.execute(
+      const [rows] = await connection.query(
         `INSERT INTO admin_accounts (name, phone, email, password_hash, admin_tier, status)
-         VALUES (?, ?, ?, ?, ?, 'active')`,
+         VALUES (?, ?, ?, ?, ?, 'active')
+         RETURNING id`,
         [name, phone, email, passwordHash, adminTier]
       );
+      const insertedId = rows[0]?.id;
 
       const token = signAuthToken({
-        id: result.insertId,
+        id: insertedId,
         name,
         email,
         phone,
@@ -74,7 +76,7 @@ export async function POST(request) {
 
       const response = NextResponse.json({
         user: {
-          id: result.insertId,
+          id: insertedId,
           name,
           email,
           phone,

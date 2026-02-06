@@ -391,7 +391,8 @@ function SettingsPage() {
         current: true
     })=>{
         try {
-            const response = await fetch(`${WHATSAPP_API_BASE}/whatsapp/status`);
+            if (!user?.id) return;
+            const response = await fetch(`${WHATSAPP_API_BASE}/whatsapp/status?adminId=${user.id}`);
             if (!response.ok) {
                 throw new Error('Failed to load WhatsApp status');
             }
@@ -419,8 +420,17 @@ function SettingsPage() {
         const isMountedRef = {
             current: true
         };
+        if (!user?.id) {
+            return ()=>{
+                isMountedRef.current = false;
+            };
+        }
         fetchWhatsAppStatus(isMountedRef);
-        const socket = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$socket$2e$io$2d$client$2f$build$2f$esm$2d$debug$2f$index$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["io"])(WHATSAPP_SOCKET_URL);
+        const socket = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$socket$2e$io$2d$client$2f$build$2f$esm$2d$debug$2f$index$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["io"])(WHATSAPP_SOCKET_URL, {
+            query: {
+                adminId: user?.id
+            }
+        });
         socket.on('whatsapp:status', (payload)=>{
             const nextStatus = payload?.status || 'idle';
             const isCurrentAdmin = payload?.activeAdminId && user?.id && payload.activeAdminId === user.id;
@@ -473,7 +483,13 @@ function SettingsPage() {
         try {
             setWhatsappActionStatus('');
             const response = await fetch(`${WHATSAPP_API_BASE}/whatsapp/disconnect`, {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    adminId: user?.id
+                })
             });
             if (!response.ok) {
                 throw new Error('Failed to disconnect WhatsApp');
@@ -523,7 +539,7 @@ function SettingsPage() {
                         children: "Settings"
                     }, void 0, false, {
                         fileName: "[project]/app/settings/page.js",
-                        lineNumber: 247,
+                        lineNumber: 259,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -531,13 +547,13 @@ function SettingsPage() {
                         children: "Manage your account and application preferences"
                     }, void 0, false, {
                         fileName: "[project]/app/settings/page.js",
-                        lineNumber: 248,
+                        lineNumber: 260,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/settings/page.js",
-                lineNumber: 246,
+                lineNumber: 258,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -560,7 +576,7 @@ function SettingsPage() {
                                             }
                                         }, void 0, false, {
                                             fileName: "[project]/app/settings/page.js",
-                                            lineNumber: 267,
+                                            lineNumber: 279,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -568,24 +584,24 @@ function SettingsPage() {
                                             children: tab.name
                                         }, void 0, false, {
                                             fileName: "[project]/app/settings/page.js",
-                                            lineNumber: 268,
+                                            lineNumber: 280,
                                             columnNumber: 19
                                         }, this)
                                     ]
                                 }, tab.id, true, {
                                     fileName: "[project]/app/settings/page.js",
-                                    lineNumber: 257,
+                                    lineNumber: 269,
                                     columnNumber: 17
                                 }, this);
                             })
                         }, void 0, false, {
                             fileName: "[project]/app/settings/page.js",
-                            lineNumber: 254,
+                            lineNumber: 266,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/settings/page.js",
-                        lineNumber: 253,
+                        lineNumber: 265,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -598,7 +614,7 @@ function SettingsPage() {
                                         children: "Profile Settings"
                                     }, void 0, false, {
                                         fileName: "[project]/app/settings/page.js",
-                                        lineNumber: 280,
+                                        lineNumber: 292,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -615,19 +631,19 @@ function SettingsPage() {
                                                             className: "w-full h-full object-cover"
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/settings/page.js",
-                                                            lineNumber: 285,
+                                                            lineNumber: 297,
                                                             columnNumber: 23
                                                         }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                             className: "text-white font-bold text-3xl",
                                                             children: profile.name?.charAt(0) || 'A'
                                                         }, void 0, false, {
                                                             fileName: "[project]/app/settings/page.js",
-                                                            lineNumber: 291,
+                                                            lineNumber: 303,
                                                             columnNumber: 23
                                                         }, this)
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 283,
+                                                        lineNumber: 295,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -645,7 +661,7 @@ function SettingsPage() {
                                                                 }
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/settings/page.js",
-                                                                lineNumber: 297,
+                                                                lineNumber: 309,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -657,7 +673,7 @@ function SettingsPage() {
                                                                         children: "Change Photo"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/settings/page.js",
-                                                                        lineNumber: 310,
+                                                                        lineNumber: 322,
                                                                         columnNumber: 23
                                                                     }, this),
                                                                     profilePhotoPreview && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Button$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -669,13 +685,13 @@ function SettingsPage() {
                                                                         children: "Remove"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/settings/page.js",
-                                                                        lineNumber: 317,
+                                                                        lineNumber: 329,
                                                                         columnNumber: 25
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/app/settings/page.js",
-                                                                lineNumber: 309,
+                                                                lineNumber: 321,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -683,19 +699,19 @@ function SettingsPage() {
                                                                 children: "JPG, PNG. Max size 2MB"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/settings/page.js",
-                                                                lineNumber: 328,
+                                                                lineNumber: 340,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 296,
+                                                        lineNumber: 308,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 282,
+                                                lineNumber: 294,
                                                 columnNumber: 17
                                             }, this),
                                             profileError && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -703,7 +719,7 @@ function SettingsPage() {
                                                 children: profileError
                                             }, void 0, false, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 333,
+                                                lineNumber: 345,
                                                 columnNumber: 19
                                             }, this),
                                             profileLoading ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -711,7 +727,7 @@ function SettingsPage() {
                                                 children: "Loading profile data..."
                                             }, void 0, false, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 339,
+                                                lineNumber: 351,
                                                 columnNumber: 19
                                             }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                 className: "grid grid-cols-2 gap-4",
@@ -726,7 +742,7 @@ function SettingsPage() {
                                                         placeholder: "Enter your name"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 344,
+                                                        lineNumber: 356,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Input$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -740,13 +756,13 @@ function SettingsPage() {
                                                         placeholder: "Enter your email"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 350,
+                                                        lineNumber: 362,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 343,
+                                                lineNumber: 355,
                                                 columnNumber: 19
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -762,12 +778,12 @@ function SettingsPage() {
                                                     disabled: true
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/settings/page.js",
-                                                    lineNumber: 361,
+                                                    lineNumber: 373,
                                                     columnNumber: 19
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 360,
+                                                lineNumber: 372,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -815,7 +831,7 @@ function SettingsPage() {
                                                         children: "Save Changes"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 371,
+                                                        lineNumber: 383,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Button$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -847,7 +863,7 @@ function SettingsPage() {
                                                         children: "Reset"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 411,
+                                                        lineNumber: 423,
                                                         columnNumber: 19
                                                     }, this),
                                                     saveStatus && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -855,25 +871,25 @@ function SettingsPage() {
                                                         children: saveStatus
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 441,
+                                                        lineNumber: 453,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 370,
+                                                lineNumber: 382,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/settings/page.js",
-                                        lineNumber: 281,
+                                        lineNumber: 293,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/settings/page.js",
-                                lineNumber: 279,
+                                lineNumber: 291,
                                 columnNumber: 13
                             }, this),
                             activeTab === 'appearance' && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Card$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -883,7 +899,7 @@ function SettingsPage() {
                                         children: "Appearance"
                                     }, void 0, false, {
                                         fileName: "[project]/app/settings/page.js",
-                                        lineNumber: 480,
+                                        lineNumber: 492,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -896,7 +912,7 @@ function SettingsPage() {
                                                         children: "Theme"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 483,
+                                                        lineNumber: 495,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -909,7 +925,7 @@ function SettingsPage() {
                                                                         className: "w-full h-24 bg-gradient-to-br from-aa-orange to-aa-dark-blue rounded-lg mb-3"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/settings/page.js",
-                                                                        lineNumber: 486,
+                                                                        lineNumber: 498,
                                                                         columnNumber: 23
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -917,7 +933,7 @@ function SettingsPage() {
                                                                         children: "Default Theme"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/settings/page.js",
-                                                                        lineNumber: 487,
+                                                                        lineNumber: 499,
                                                                         columnNumber: 23
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Badge$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -926,13 +942,13 @@ function SettingsPage() {
                                                                         children: "Active"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/settings/page.js",
-                                                                        lineNumber: 488,
+                                                                        lineNumber: 500,
                                                                         columnNumber: 23
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/app/settings/page.js",
-                                                                lineNumber: 485,
+                                                                lineNumber: 497,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -942,7 +958,7 @@ function SettingsPage() {
                                                                         className: "w-full h-24 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg mb-3"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/settings/page.js",
-                                                                        lineNumber: 491,
+                                                                        lineNumber: 503,
                                                                         columnNumber: 23
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -950,7 +966,7 @@ function SettingsPage() {
                                                                         children: "Dark Theme"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/settings/page.js",
-                                                                        lineNumber: 492,
+                                                                        lineNumber: 504,
                                                                         columnNumber: 23
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Badge$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -959,25 +975,25 @@ function SettingsPage() {
                                                                         children: "Coming Soon"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/settings/page.js",
-                                                                        lineNumber: 493,
+                                                                        lineNumber: 505,
                                                                         columnNumber: 23
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/app/settings/page.js",
-                                                                lineNumber: 490,
+                                                                lineNumber: 502,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 484,
+                                                        lineNumber: 496,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 482,
+                                                lineNumber: 494,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -987,7 +1003,7 @@ function SettingsPage() {
                                                         children: "Accent Color"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 499,
+                                                        lineNumber: 511,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1006,30 +1022,30 @@ function SettingsPage() {
                                                                 }
                                                             }, color, false, {
                                                                 fileName: "[project]/app/settings/page.js",
-                                                                lineNumber: 502,
+                                                                lineNumber: 514,
                                                                 columnNumber: 23
                                                             }, this))
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 500,
+                                                        lineNumber: 512,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 498,
+                                                lineNumber: 510,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/settings/page.js",
-                                        lineNumber: 481,
+                                        lineNumber: 493,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/settings/page.js",
-                                lineNumber: 479,
+                                lineNumber: 491,
                                 columnNumber: 13
                             }, this),
                             activeTab === 'whatsapp' && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Card$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -1039,7 +1055,7 @@ function SettingsPage() {
                                         children: "WhatsApp Configuration"
                                     }, void 0, false, {
                                         fileName: "[project]/app/settings/page.js",
-                                        lineNumber: 517,
+                                        lineNumber: 529,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1055,7 +1071,7 @@ function SettingsPage() {
                                                                 className: `w-3 h-3 rounded-full ${whatsappTone === 'green' ? 'bg-green-500 animate-pulse' : whatsappTone === 'amber' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'}`
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/settings/page.js",
-                                                                lineNumber: 529,
+                                                                lineNumber: 541,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1063,13 +1079,13 @@ function SettingsPage() {
                                                                 children: whatsappStatusLabel
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/settings/page.js",
-                                                                lineNumber: 538,
+                                                                lineNumber: 550,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 528,
+                                                        lineNumber: 540,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1077,13 +1093,13 @@ function SettingsPage() {
                                                         children: whatsappStatusMessage
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 550,
+                                                        lineNumber: 562,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 519,
+                                                lineNumber: 531,
                                                 columnNumber: 17
                                             }, this),
                                             !whatsappConnected && whatsappQr && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1095,7 +1111,7 @@ function SettingsPage() {
                                                         className: "w-56 h-56"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 565,
+                                                        lineNumber: 577,
                                                         columnNumber: 21
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1103,13 +1119,13 @@ function SettingsPage() {
                                                         children: "Open WhatsApp on your phone → Linked Devices → Link a device"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 570,
+                                                        lineNumber: 582,
                                                         columnNumber: 21
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 564,
+                                                lineNumber: 576,
                                                 columnNumber: 19
                                             }, this),
                                             whatsappActionStatus && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1117,7 +1133,7 @@ function SettingsPage() {
                                                 children: whatsappActionStatus
                                             }, void 0, false, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 577,
+                                                lineNumber: 589,
                                                 columnNumber: 19
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Input$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -1131,7 +1147,7 @@ function SettingsPage() {
                                                 disabled: true
                                             }, void 0, false, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 582,
+                                                lineNumber: 594,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Input$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -1145,7 +1161,7 @@ function SettingsPage() {
                                                 disabled: true
                                             }, void 0, false, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 589,
+                                                lineNumber: 601,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Input$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -1158,7 +1174,7 @@ function SettingsPage() {
                                                 disabled: !whatsappConnected
                                             }, void 0, false, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 596,
+                                                lineNumber: 608,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1171,7 +1187,7 @@ function SettingsPage() {
                                                         children: whatsappConnected ? 'Configured' : whatsappStatus === 'starting' ? 'Starting...' : 'Connect WhatsApp'
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 604,
+                                                        lineNumber: 616,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Button$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -1182,25 +1198,25 @@ function SettingsPage() {
                                                         children: "Disconnect"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 615,
+                                                        lineNumber: 627,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 603,
+                                                lineNumber: 615,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/settings/page.js",
-                                        lineNumber: 518,
+                                        lineNumber: 530,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/settings/page.js",
-                                lineNumber: 516,
+                                lineNumber: 528,
                                 columnNumber: 13
                             }, this),
                             activeTab === 'security' && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Card$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -1210,7 +1226,7 @@ function SettingsPage() {
                                         children: "Security Settings"
                                     }, void 0, false, {
                                         fileName: "[project]/app/settings/page.js",
-                                        lineNumber: 664,
+                                        lineNumber: 676,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1223,7 +1239,7 @@ function SettingsPage() {
                                                         children: "Change Password"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 667,
+                                                        lineNumber: 679,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1238,7 +1254,7 @@ function SettingsPage() {
                                                                 disabled: passwordLoading
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/settings/page.js",
-                                                                lineNumber: 669,
+                                                                lineNumber: 681,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Input$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -1250,7 +1266,7 @@ function SettingsPage() {
                                                                 disabled: passwordLoading
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/settings/page.js",
-                                                                lineNumber: 677,
+                                                                lineNumber: 689,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Input$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -1262,7 +1278,7 @@ function SettingsPage() {
                                                                 disabled: passwordLoading
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/settings/page.js",
-                                                                lineNumber: 685,
+                                                                lineNumber: 697,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1313,7 +1329,7 @@ function SettingsPage() {
                                                                         children: passwordLoading ? 'Updating...' : 'Update Password'
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/settings/page.js",
-                                                                        lineNumber: 694,
+                                                                        lineNumber: 706,
                                                                         columnNumber: 23
                                                                     }, this),
                                                                     passwordStatus && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1321,25 +1337,25 @@ function SettingsPage() {
                                                                         children: passwordStatus
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/settings/page.js",
-                                                                        lineNumber: 734,
+                                                                        lineNumber: 746,
                                                                         columnNumber: 25
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/app/settings/page.js",
-                                                                lineNumber: 693,
+                                                                lineNumber: 705,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 668,
+                                                        lineNumber: 680,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 666,
+                                                lineNumber: 678,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1350,7 +1366,7 @@ function SettingsPage() {
                                                         children: "Two-Factor Authentication"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 743,
+                                                        lineNumber: 755,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1363,7 +1379,7 @@ function SettingsPage() {
                                                                         children: "Enable 2FA"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/settings/page.js",
-                                                                        lineNumber: 746,
+                                                                        lineNumber: 758,
                                                                         columnNumber: 23
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1371,13 +1387,13 @@ function SettingsPage() {
                                                                         children: "Add an extra layer of security to your account"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/settings/page.js",
-                                                                        lineNumber: 747,
+                                                                        lineNumber: 759,
                                                                         columnNumber: 23
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/app/settings/page.js",
-                                                                lineNumber: 745,
+                                                                lineNumber: 757,
                                                                 columnNumber: 21
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Button$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -1385,19 +1401,19 @@ function SettingsPage() {
                                                                 children: "Enable"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/app/settings/page.js",
-                                                                lineNumber: 749,
+                                                                lineNumber: 761,
                                                                 columnNumber: 21
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 744,
+                                                        lineNumber: 756,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 742,
+                                                lineNumber: 754,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1408,7 +1424,7 @@ function SettingsPage() {
                                                         children: "Active Sessions"
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 754,
+                                                        lineNumber: 766,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1434,7 +1450,7 @@ function SettingsPage() {
                                                                                 children: session.device
                                                                             }, void 0, false, {
                                                                                 fileName: "[project]/app/settings/page.js",
-                                                                                lineNumber: 762,
+                                                                                lineNumber: 774,
                                                                                 columnNumber: 27
                                                                             }, this),
                                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -1446,13 +1462,13 @@ function SettingsPage() {
                                                                                 ]
                                                                             }, void 0, true, {
                                                                                 fileName: "[project]/app/settings/page.js",
-                                                                                lineNumber: 763,
+                                                                                lineNumber: 775,
                                                                                 columnNumber: 27
                                                                             }, this)
                                                                         ]
                                                                     }, void 0, true, {
                                                                         fileName: "[project]/app/settings/page.js",
-                                                                        lineNumber: 761,
+                                                                        lineNumber: 773,
                                                                         columnNumber: 25
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$app$2f$components$2f$common$2f$Button$2e$jsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -1461,54 +1477,54 @@ function SettingsPage() {
                                                                         children: "Revoke"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/app/settings/page.js",
-                                                                        lineNumber: 765,
+                                                                        lineNumber: 777,
                                                                         columnNumber: 25
                                                                     }, this)
                                                                 ]
                                                             }, idx, true, {
                                                                 fileName: "[project]/app/settings/page.js",
-                                                                lineNumber: 760,
+                                                                lineNumber: 772,
                                                                 columnNumber: 23
                                                             }, this))
                                                     }, void 0, false, {
                                                         fileName: "[project]/app/settings/page.js",
-                                                        lineNumber: 755,
+                                                        lineNumber: 767,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/settings/page.js",
-                                                lineNumber: 753,
+                                                lineNumber: 765,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/settings/page.js",
-                                        lineNumber: 665,
+                                        lineNumber: 677,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/settings/page.js",
-                                lineNumber: 663,
+                                lineNumber: 675,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/settings/page.js",
-                        lineNumber: 276,
+                        lineNumber: 288,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/settings/page.js",
-                lineNumber: 251,
+                lineNumber: 263,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/app/settings/page.js",
-        lineNumber: 245,
+        lineNumber: 257,
         columnNumber: 5
     }, this);
 }
