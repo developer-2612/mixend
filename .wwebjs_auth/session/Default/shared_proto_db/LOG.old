@@ -1,3 +1,3 @@
-2026/02/06-12:27:05.085 16209 Reusing MANIFEST /var/www/html/mex-end/.wwebjs_auth/session/Default/shared_proto_db/MANIFEST-000001
-2026/02/06-12:27:05.085 16209 Recovering log #3
-2026/02/06-12:27:05.086 16209 Reusing old log /var/www/html/mex-end/.wwebjs_auth/session/Default/shared_proto_db/000003.log 
+2026/02/06-13:18:22.939 19e50 Reusing MANIFEST /var/www/html/mex-end/.wwebjs_auth/session/Default/shared_proto_db/MANIFEST-000001
+2026/02/06-13:18:22.940 19e50 Recovering log #3
+2026/02/06-13:18:22.940 19e50 Reusing old log /var/www/html/mex-end/.wwebjs_auth/session/Default/shared_proto_db/000003.log 

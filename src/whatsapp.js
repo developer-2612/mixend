@@ -171,6 +171,353 @@ export const getWhatsAppState = () => ({
 const users = Object.create(null);
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
+/* ===============================
+   🤖 BOT CONTENT & HELPERS
+   =============================== */
+const MAIN_MENU_TEXT = [
+  "Namaste/Hello 🙏",
+  "I am a helper bot for *ABC Astrology*.",
+  "",
+  "How can I help you today? / Aaj aapko kis cheez me madad chahiye?",
+  "",
+  "1️⃣ Services (सेवाएं)",
+  "2️⃣ Products / Stones (प्रोडक्ट्स / रत्न)",
+  "3️⃣ Talk to an Executive (एक्सपर्ट से बात)",
+  "",
+  "_Reply with 1, 2, or 3, or type your need_",
+].join("\n");
+
+const returningMenuText = (name) =>
+  [
+    `Welcome back ${name} 👋`,
+    "",
+    "How can we help you today? / Aaj aapko kis cheez me madad chahiye?",
+    "",
+    "1️⃣ Services (सेवाएं)",
+    "2️⃣ Products / Stones (प्रोडक्ट्स / रत्न)",
+    "3️⃣ Talk to an Executive (एक्सपर्ट से बात)",
+    "",
+    "_Reply with 1, 2, or 3, or type your need_",
+  ].join("\n");
+
+const SERVICES_MENU_TEXT = [
+  "Services Menu / सेवाएं:",
+  "1️⃣ Kundli / Birth Chart (कुंडली)",
+  "2️⃣ Vastu Consultation (वास्तु सलाह)",
+  "3️⃣ Gemstone Recommendation (रत्न सलाह)",
+  "4️⃣ Pooja / Paath Booking (पूजा/पाठ)",
+  "5️⃣ Shaadi / Marriage Guidance (शादी/विवाह)",
+  "6️⃣ Kaal Sarp Dosh / Sarpdosh Pooja (कालसर्प दोष पूजा)",
+  "7️⃣ Talk to Executive",
+  "8️⃣ Main Menu",
+  "",
+  "_Reply with a number or type the service name_",
+].join("\n");
+
+const PRODUCTS_MENU_TEXT = [
+  "Products Menu / प्रोडक्ट्स:",
+  "1️⃣ Navaratna Set",
+  "2️⃣ Ruby (Manik) / माणिक",
+  "3️⃣ Emerald (Panna) / पन्ना",
+  "4️⃣ Yellow Sapphire (Pukhraj) / पुखराज",
+  "5️⃣ Blue Sapphire (Neelam) / नीलम",
+  "6️⃣ Pearl (Moti) / मोती",
+  "7️⃣ Diamond (Heera) / हीरा",
+  "8️⃣ Coral (Moonga) / मूंगा",
+  "9️⃣ Hessonite (Gomed) / गोमेद",
+  "10️⃣ Cat's Eye (Lehsunia) / लहसुनिया",
+  "11️⃣ Opal / ओपल",
+  "12️⃣ Amethyst / जमुनिया",
+  "13️⃣ Topaz / टोपाज़",
+  "14️⃣ Turquoise / फिरोज़ा",
+  "15️⃣ Moonstone / चंद्रकांत",
+  "16️⃣ Other Stone / अन्य",
+  "17️⃣ Main Menu",
+  "",
+  "_Reply with a number or type stone name_",
+].join("\n");
+
+const PRODUCT_DETAILS_PROMPT =
+  "Great choice 👍\nPlease share product details (stone name, carat/size, ring/pendant, purpose).\nPrices vary by quality/weight; we will share the best current estimate after details.";
+
+const SERVICE_OPTIONS = [
+  {
+    id: "kundli",
+    number: "1",
+    label: "Kundli / Birth Chart (कुंडली)",
+    keywords: [
+      "kundli",
+      "kundali",
+      "janam",
+      "patrika",
+      "birth chart",
+      "horoscope",
+      "कुंडली",
+    ],
+    prompt:
+      "Kundli ke liye apni *DOB (DD/MM/YYYY)*, *birth time*, aur *birth place (city)* bhejiye.\nअगर कोई specific समस्या है तो वो भी लिखें.",
+  },
+  {
+    id: "vastu",
+    number: "2",
+    label: "Vastu Consultation (वास्तु सलाह)",
+    keywords: ["vastu", "vaastu", "वास्तु"],
+    prompt:
+      "Vastu ke liye property type (home/office), city, aur concern/issue share karein.",
+  },
+  {
+    id: "gemstone",
+    number: "3",
+    label: "Gemstone Recommendation (रत्न सलाह)",
+    keywords: [
+      "gemstone",
+      "stone",
+      "ratna",
+      "pukhraj",
+      "neelam",
+      "panna",
+      "manik",
+      "moti",
+      "heera",
+      "gomed",
+      "lehsunia",
+      "moonga",
+      "ruby",
+      "emerald",
+      "sapphire",
+      "pearl",
+      "diamond",
+      "रत्न",
+    ],
+    prompt:
+      "Gemstone recommendation ke liye apni *DOB*, *birth time*, *birth place*, aur concern (career/health/marriage) bhejiye.",
+  },
+  {
+    id: "pooja",
+    number: "4",
+    label: "Pooja / Paath Booking (पूजा/पाठ)",
+    keywords: ["pooja", "puja", "paath", "path", "havan", "yagya", "पूजा", "पाठ"],
+    prompt:
+      "Pooja/Paath booking ke liye pooja type, preferred date, aur city/location share karein.",
+  },
+  {
+    id: "shaadi",
+    number: "5",
+    label: "Shaadi / Marriage Guidance (शादी/विवाह)",
+    keywords: ["shaadi", "shadi", "marriage", "vivah", "muhurat", "शादी", "विवाह"],
+    prompt:
+      "Shaadi guidance ke liye bride & groom ki *DOB*, *birth time*, *birth place* aur requirement (matching/muhurat) bhejiye.",
+  },
+  {
+    id: "kaalsarp",
+    number: "6",
+    label: "Kaal Sarp Dosh / Sarpdosh Pooja (कालसर्प दोष पूजा)",
+    keywords: [
+      "kaal sarp",
+      "kalsarp",
+      "kal sarp",
+      "sarpdosh",
+      "sarpa dosh",
+      "nag dosh",
+      "कालसर्प",
+      "सर्पदोष",
+    ],
+    prompt:
+      "Kaal Sarp Dosh Pooja ke liye apni *DOB*, *birth time*, *birth place*, preferred date, aur city share karein.",
+  },
+  {
+    id: "executive",
+    number: "7",
+    label: "Talk to Executive",
+    keywords: ["executive", "agent", "human", "call", "talk", "baat", "help"],
+  },
+  {
+    id: "main_menu",
+    number: "8",
+    label: "Main Menu",
+    keywords: ["menu", "main menu", "back", "home", "मुख्य मेनू", "मेनू"],
+  },
+];
+
+const PRODUCT_OPTIONS = [
+  { id: "navaratna", number: "1", label: "Navaratna Set", keywords: ["navaratna", "navratan"] },
+  { id: "ruby", number: "2", label: "Ruby (Manik)", keywords: ["ruby", "manik", "माणिक"] },
+  { id: "emerald", number: "3", label: "Emerald (Panna)", keywords: ["emerald", "panna", "पन्ना"] },
+  { id: "yellow_sapphire", number: "4", label: "Yellow Sapphire (Pukhraj)", keywords: ["yellow sapphire", "pukhraj", "पुखराज"] },
+  { id: "blue_sapphire", number: "5", label: "Blue Sapphire (Neelam)", keywords: ["blue sapphire", "neelam", "नीलम"] },
+  { id: "pearl", number: "6", label: "Pearl (Moti)", keywords: ["pearl", "moti", "मोती"] },
+  { id: "diamond", number: "7", label: "Diamond (Heera)", keywords: ["diamond", "heera", "हीरा"] },
+  { id: "coral", number: "8", label: "Coral (Moonga)", keywords: ["coral", "moonga", "मूंगा"] },
+  { id: "hessonite", number: "9", label: "Hessonite (Gomed)", keywords: ["hessonite", "gomed", "गोमेद"] },
+  { id: "catseye", number: "10", label: "Cat's Eye (Lehsunia)", keywords: ["cat's eye", "cats eye", "lehsunia", "लहसुनिया"] },
+  { id: "opal", number: "11", label: "Opal", keywords: ["opal", "ओपल"] },
+  { id: "amethyst", number: "12", label: "Amethyst", keywords: ["amethyst", "jamuniya", "जमुनिया"] },
+  { id: "topaz", number: "13", label: "Topaz", keywords: ["topaz", "टोपाज़"] },
+  { id: "turquoise", number: "14", label: "Turquoise", keywords: ["turquoise", "firoza", "फिरोज़ा"] },
+  { id: "moonstone", number: "15", label: "Moonstone", keywords: ["moonstone", "chandrakant", "चंद्रकांत"] },
+  { id: "other", number: "16", label: "Other Stone / Custom", keywords: ["other stone", "custom", "koi aur", "any other"] },
+  { id: "main_menu", number: "17", label: "Main Menu", keywords: ["menu", "main menu", "back", "home", "मुख्य मेनू", "मेनू"] },
+];
+
+const textHasAny = (input, keywords) => keywords.some((word) => input.includes(word));
+
+const extractNumber = (input) => {
+  const match = input.match(/\d+/);
+  return match ? match[0] : null;
+};
+
+const matchOption = (input, options) => {
+  const number = extractNumber(input);
+  if (number) {
+    const numericMatch = options.find((option) => option.number === number);
+    if (numericMatch) return numericMatch;
+  }
+  return options.find((option) => option.keywords?.some((keyword) => input.includes(keyword)));
+};
+
+const detectMainIntent = (input) => {
+  const execKeywords = ["executive", "agent", "human", "call", "talk", "support", "baat"];
+  const serviceKeywords = [
+    "service",
+    "seva",
+    "kundli",
+    "kundali",
+    "vastu",
+    "pooja",
+    "puja",
+    "paath",
+    "path",
+    "gemstone recommendation",
+    "recommendation",
+    "consult",
+    "consultation",
+    "shaadi",
+    "marriage",
+    "vivah",
+    "muhurat",
+    "kaal sarp",
+    "sarpdosh",
+    "astro",
+    "astrology",
+  ];
+  const productKeywords = [
+    "product",
+    "stone",
+    "gemstone",
+    "ring",
+    "pendant",
+    "mala",
+    "ratna",
+    "buy",
+    "order",
+    "price",
+    "cost",
+    "pearl",
+    "diamond",
+    "ruby",
+    "emerald",
+    "sapphire",
+    "neelam",
+    "panna",
+    "manik",
+    "moti",
+    "heera",
+    "pukhraj",
+    "gomed",
+    "lehsunia",
+    "moonga",
+  ];
+
+  if (textHasAny(input, execKeywords)) return "EXECUTIVE";
+
+  const wantsService = textHasAny(input, serviceKeywords);
+  const wantsProduct = textHasAny(input, productKeywords);
+
+  if (wantsService && !wantsProduct) return "SERVICES";
+  if (wantsProduct && !wantsService) return "PRODUCTS";
+
+  if (wantsService && wantsProduct) {
+    if (textHasAny(input, ["buy", "order", "price", "cost", "ring", "pendant"])) {
+      return "PRODUCTS";
+    }
+    if (textHasAny(input, ["consult", "recommend", "suggest", "upay", "solution"])) {
+      return "SERVICES";
+    }
+  }
+  return null;
+};
+
+const isMenuCommand = (input, rawText) => {
+  if (["menu", "main menu", "start", "restart", "home", "back"].includes(input)) return true;
+  return rawText.includes("मेनू") || rawText.includes("मुख्य मेनू");
+};
+
+const buildRequirementSummary = ({ user, phone }) => {
+  const lines = [];
+  const displayName = user.name || user.data.name || "N/A";
+  const email = user.email || user.data.email || "N/A";
+
+  lines.push(`Name: ${displayName}`);
+  lines.push(`Phone: ${phone}`);
+  lines.push(`Email: ${email}`);
+
+  if (user.data.reason) lines.push(`Request Type: ${user.data.reason}`);
+  if (user.data.serviceType) lines.push(`Service: ${user.data.serviceType}`);
+  if (user.data.productType) lines.push(`Product: ${user.data.productType}`);
+  if (user.data.serviceDetails) lines.push(`Service Details: ${user.data.serviceDetails}`);
+  if (user.data.productDetails) lines.push(`Product Details: ${user.data.productDetails}`);
+  if (user.data.address) lines.push(`Address: ${user.data.address}`);
+  if (user.data.altContact) lines.push(`Alt Contact: ${user.data.altContact}`);
+  if (user.data.executiveMessage) lines.push(`Message: ${user.data.executiveMessage}`);
+
+  return lines.join("\n");
+};
+
+const finalizeLead = async ({ user, from, phone, assignedAdminId }) => {
+  let clientId = user.clientId;
+  const adminId = user.assignedAdminId || assignedAdminId;
+  const displayName = user.name || user.data.name || "Unknown";
+  const email = user.email || user.data.email || null;
+
+  if (!user.isReturningUser) {
+    const [result] = await db.query(
+      "INSERT INTO users (name, phone, email, assigned_admin_id) VALUES (?, ?, ?, ?)",
+      [displayName, phone, email, adminId]
+    );
+    clientId = result.insertId;
+  }
+
+  const requirementText = user.data.message || buildRequirementSummary({ user, phone });
+  const requirementCategory =
+    user.data.serviceType || user.data.productType || user.data.reason || "General";
+
+  await db.query(
+    `INSERT INTO messages (user_id, admin_id, message_text, message_type, status)
+     VALUES (?, ?, ?, 'incoming', 'delivered')`,
+    [clientId, adminId, requirementText]
+  );
+
+  await db.query(
+    `INSERT INTO user_requirements (user_id, requirement_text, category, status)
+     VALUES (?, ?, ?, 'pending')`,
+    [clientId, requirementText, requirementCategory]
+  );
+
+  console.log(
+    user.isReturningUser
+      ? `🔁 Message saved for returning user: ${displayName}`
+      : "🆕 New lead saved"
+  );
+
+  await delay(1000);
+  await client.sendMessage(
+    from,
+    `Thank you ${displayName} 😊\nOur team will contact you shortly.`
+  );
+
+  delete users[from];
+};
+
 
 /* ===============================
    🔥 AUTOMATION LOGIC
@@ -223,35 +570,107 @@ client.on("message", async (message) => {
         isReturningUser,
         clientId: isReturningUser ? existingUser.id : null,
         name: isReturningUser ? existingUser.name : null,
+        email: isReturningUser ? existingUser.email : null,
         assignedAdminId,
       };
     }
 
     const user = users[from];
 
+    if (isMenuCommand(lower, text)) {
+      await delay(1000);
+      await client.sendMessage(
+        from,
+        user.isReturningUser && user.name ? returningMenuText(user.name) : MAIN_MENU_TEXT
+      );
+      user.step = "MENU";
+      return;
+    }
+
     /* ===============================
        STEP 1: START (NEW USER)
        =============================== */
     if (user.step === "START") {
-      if (lower === "hi" || lower === "hello") {
-        await delay(1000);
+      const startNumber = extractNumber(lower);
+      const mainIntent = ["1", "2", "3"].includes(startNumber)
+        ? startNumber === "1"
+          ? "SERVICES"
+          : startNumber === "2"
+          ? "PRODUCTS"
+          : "EXECUTIVE"
+        : detectMainIntent(lower);
+      const matchedService = ["1", "2", "3"].includes(startNumber)
+        ? null
+        : matchOption(lower, SERVICE_OPTIONS);
+      const matchedProduct = ["1", "2", "3"].includes(startNumber)
+        ? null
+        : matchOption(lower, PRODUCT_OPTIONS);
+      const resolvedIntent =
+        mainIntent || (matchedService ? "SERVICES" : matchedProduct ? "PRODUCTS" : null);
+
+      await delay(1000);
+      if (resolvedIntent === "SERVICES") {
+        user.data.reason = "Services";
+        if (matchedService && matchedService.id === "executive") {
+          await client.sendMessage(
+            from,
+            "Sure 👍\nPlease tell us briefly *how we can help you today*."
+          );
+          user.step = "EXECUTIVE_MESSAGE";
+          return;
+        }
+        if (matchedService && matchedService.id !== "main_menu" && matchedService.prompt) {
+          user.data.serviceType = matchedService.label;
+          await client.sendMessage(from, matchedService.prompt);
+          user.step = "SERVICE_DETAILS";
+          return;
+        }
+        if (["1", "2", "3"].includes(startNumber)) {
+          user.data.nextStep = "SERVICES_MENU";
+          await client.sendMessage(from, "Great 😊\nMay I know your *name*?");
+          user.step = "ASK_NAME";
+          return;
+        }
+        await client.sendMessage(from, SERVICES_MENU_TEXT);
+        user.step = "SERVICES_MENU";
+        return;
+      }
+      if (resolvedIntent === "PRODUCTS") {
+        user.data.reason = "Products";
+        if (matchedProduct && matchedProduct.id !== "main_menu") {
+          user.data.productType = matchedProduct.label;
+          await client.sendMessage(from, PRODUCT_DETAILS_PROMPT);
+          user.step = "PRODUCT_REQUIREMENTS";
+          return;
+        }
+        if (["1", "2", "3"].includes(startNumber)) {
+          user.data.nextStep = "PRODUCTS_MENU";
+          await client.sendMessage(from, "Great 😊\nMay I know your *name*?");
+          user.step = "ASK_NAME";
+          return;
+        }
+        await client.sendMessage(from, PRODUCTS_MENU_TEXT);
+        user.step = "PRODUCTS_MENU";
+        return;
+      }
+      if (resolvedIntent === "EXECUTIVE") {
+        user.data.reason = "Talk to an Executive";
+        if (["1", "2", "3"].includes(startNumber)) {
+          user.data.nextStep = "EXECUTIVE_MESSAGE";
+          await client.sendMessage(from, "Great 😊\nMay I know your *name*?");
+          user.step = "ASK_NAME";
+          return;
+        }
         await client.sendMessage(
           from,
-          [
-            "Hi 👋",
-            "I am a helper bot for *ABC Company*.",
-            "",
-            "How can I help you today?",
-            "",
-            "1️⃣ Services",
-            "2️⃣ Products",
-            "3️⃣ Talk to an Executive",
-            "",
-            "_Reply with 1, 2, or 3_",
-          ].join("\n")
+          "Sure 👍\nPlease tell us briefly *how we can help you today*."
         );
-        user.step = "MENU";
+        user.step = "EXECUTIVE_MESSAGE";
+        return;
       }
+
+      await client.sendMessage(from, MAIN_MENU_TEXT);
+      user.step = "MENU";
       return;
     }
 
@@ -260,20 +679,7 @@ client.on("message", async (message) => {
        =============================== */
     if (user.step === "MENU" && user.isReturningUser && (lower === "hi" || lower === "hello")) {
       await delay(1000);
-      await client.sendMessage(
-        from,
-        [
-          `Welcome back ${user.name} 👋`,
-          "",
-          "How can we help you today?",
-          "",
-          "1️⃣ Services",
-          "2️⃣ Products",
-          "3️⃣ Talk to an Executive",
-          "",
-          "_Reply with 1, 2, or 3_",
-        ].join("\n")
-      );
+      await client.sendMessage(from, returningMenuText(user.name));
       return;
     }
 
@@ -281,30 +687,99 @@ client.on("message", async (message) => {
        STEP 2: MENU
        =============================== */
     if (user.step === "MENU") {
-      if (!["1", "2", "3"].includes(lower)) {
-        await client.sendMessage(from, "Please reply with 1, 2, or 3 🙂");
+      const number = extractNumber(lower);
+      const isNumericMenuChoice = ["1", "2", "3"].includes(number);
+      const mainIntent = detectMainIntent(lower);
+      const matchedService = isNumericMenuChoice ? null : matchOption(lower, SERVICE_OPTIONS);
+      const matchedProduct = isNumericMenuChoice ? null : matchOption(lower, PRODUCT_OPTIONS);
+
+      let mainChoice = null;
+      if (["1", "2", "3"].includes(number)) {
+        mainChoice = number === "1" ? "SERVICES" : number === "2" ? "PRODUCTS" : "EXECUTIVE";
+      } else if (mainIntent) {
+        mainChoice = mainIntent;
+      } else if (matchedService) {
+        mainChoice = "SERVICES";
+      } else if (matchedProduct) {
+        mainChoice = "PRODUCTS";
+      }
+
+      if (!mainChoice) {
+        await client.sendMessage(
+          from,
+          "Please reply with 1, 2, or 3, or type your need 🙂"
+        );
         return;
       }
 
       user.data.reason =
-        lower === "1"
+        mainChoice === "SERVICES"
           ? "Services"
-          : lower === "2"
+          : mainChoice === "PRODUCTS"
           ? "Products"
           : "Talk to an Executive";
 
-      // RETURNING USER → SKIP NAME & EMAIL
+      if (mainChoice === "SERVICES" && matchedService && matchedService.id === "executive") {
+        if (user.isReturningUser) {
+          await delay(1000);
+          await client.sendMessage(
+            from,
+            "Sure 👍\nPlease tell us briefly *how we can help you today*."
+          );
+          user.step = "EXECUTIVE_MESSAGE";
+          return;
+        }
+        user.data.nextStep = "EXECUTIVE_MESSAGE";
+      } else if (mainChoice === "SERVICES" && matchedService && matchedService.id !== "main_menu") {
+        user.data.serviceType = matchedService.label;
+        user.data.nextStep = "SERVICE_DETAILS";
+      } else if (mainChoice === "PRODUCTS" && matchedProduct && matchedProduct.id !== "main_menu") {
+        user.data.productType = matchedProduct.label;
+        user.data.nextStep = "PRODUCT_REQUIREMENTS";
+      } else {
+        user.data.nextStep =
+          mainChoice === "SERVICES"
+            ? "SERVICES_MENU"
+            : mainChoice === "PRODUCTS"
+            ? "PRODUCTS_MENU"
+            : "EXECUTIVE_MESSAGE";
+      }
+
       if (user.isReturningUser) {
         await delay(1000);
+        if (user.data.nextStep === "SERVICES_MENU") {
+          await client.sendMessage(from, SERVICES_MENU_TEXT);
+          user.step = "SERVICES_MENU";
+          return;
+        }
+        if (user.data.nextStep === "PRODUCTS_MENU") {
+          await client.sendMessage(from, PRODUCTS_MENU_TEXT);
+          user.step = "PRODUCTS_MENU";
+          return;
+        }
+        if (user.data.nextStep === "SERVICE_DETAILS") {
+          const serviceOption = matchOption(lower, SERVICE_OPTIONS);
+          await client.sendMessage(
+            from,
+            serviceOption?.prompt ||
+              "Please share your service details (DOB, time, place, and concern)."
+          );
+          user.step = "SERVICE_DETAILS";
+          return;
+        }
+        if (user.data.nextStep === "PRODUCT_REQUIREMENTS") {
+          await client.sendMessage(from, PRODUCT_DETAILS_PROMPT);
+          user.step = "PRODUCT_REQUIREMENTS";
+          return;
+        }
         await client.sendMessage(
           from,
-          "Got it 👍\nPlease tell us briefly *how we can help you today*."
+          "Sure 👍\nPlease tell us briefly *how we can help you today*."
         );
-        user.step = "ASK_MESSAGE";
+        user.step = "EXECUTIVE_MESSAGE";
         return;
       }
 
-      // NEW USER → ASK NAME
       await delay(1000);
       await client.sendMessage(from, "Great 😊\nMay I know your *name*?");
       user.step = "ASK_NAME";
@@ -316,6 +791,7 @@ client.on("message", async (message) => {
        =============================== */
     if (user.step === "ASK_NAME") {
       user.data.name = text;
+      user.name = text;
 
       await delay(1000);
       await client.sendMessage(
@@ -332,67 +808,169 @@ client.on("message", async (message) => {
        =============================== */
     if (user.step === "ASK_EMAIL") {
       user.data.email = text;
+      user.email = text;
 
       await delay(1000);
+      if (user.data.nextStep === "SERVICES_MENU") {
+        await client.sendMessage(from, SERVICES_MENU_TEXT);
+        user.step = "SERVICES_MENU";
+        return;
+      }
+      if (user.data.nextStep === "PRODUCTS_MENU") {
+        await client.sendMessage(from, PRODUCTS_MENU_TEXT);
+        user.step = "PRODUCTS_MENU";
+        return;
+      }
+      if (user.data.nextStep === "SERVICE_DETAILS") {
+        const serviceOption = SERVICE_OPTIONS.find(
+          (option) => option.label === user.data.serviceType
+        );
+        await client.sendMessage(
+          from,
+          serviceOption?.prompt ||
+            "Please share your service details (DOB, time, place, and concern)."
+        );
+        user.step = "SERVICE_DETAILS";
+        return;
+      }
+      if (user.data.nextStep === "PRODUCT_REQUIREMENTS") {
+        await client.sendMessage(from, PRODUCT_DETAILS_PROMPT);
+        user.step = "PRODUCT_REQUIREMENTS";
+        return;
+      }
+
       await client.sendMessage(
         from,
         "Got it 👍\nPlease tell us briefly *how we can help you*."
       );
-
-      user.step = "ASK_MESSAGE";
+      user.step = "EXECUTIVE_MESSAGE";
       return;
     }
 
     /* ===============================
-       STEP 5: FINAL (SAVE MESSAGE)
+       STEP 4B: SERVICES MENU
        =============================== */
-    if (user.step === "ASK_MESSAGE") {
-      user.data.message = text;
-
-      let clientId = user.clientId;
-      const adminId = user.assignedAdminId || assignedAdminId;
-
-      // INSERT CLIENT IF NEW
-      if (!user.isReturningUser) {
-        const [result] = await db.query(
-          "INSERT INTO users (name, phone, email, assigned_admin_id) VALUES (?, ?, ?, ?)",
-          [
-            user.data.name,
-            phone,
-            user.data.email,
-            adminId,
-          ]
-        );
-        clientId = result.insertId;
+    if (user.step === "SERVICES_MENU") {
+      const selectedService = matchOption(lower, SERVICE_OPTIONS);
+      if (!selectedService) {
+        await client.sendMessage(from, "Please choose a service from the menu 🙂");
+        return;
       }
 
-      // SAVE MESSAGE
-      await db.query(
-        `INSERT INTO messages (user_id, admin_id, message_text, message_type, status)
-         VALUES (?, ?, ?, 'incoming', 'delivered')`,
-        [clientId, adminId, user.data.message]
-      );
+      if (selectedService.id === "main_menu") {
+        await delay(1000);
+        await client.sendMessage(from, MAIN_MENU_TEXT);
+        user.step = "MENU";
+        return;
+      }
 
-      await db.query(
-        `INSERT INTO user_requirements (user_id, requirement_text, category, status)
-         VALUES (?, ?, ?, 'pending')`,
-        [clientId, user.data.message, user.data.reason]
-      );
+      if (selectedService.id === "executive") {
+        user.data.reason = "Talk to an Executive";
+        await delay(1000);
+        await client.sendMessage(
+          from,
+          "Sure 👍\nPlease tell us briefly *how we can help you today*."
+        );
+        user.step = "EXECUTIVE_MESSAGE";
+        return;
+      }
 
-      console.log(
-        user.isReturningUser
-          ? `🔁 Message saved for returning user: ${user.name}`
-          : "🆕 New lead saved"
-      );
+      user.data.reason = "Services";
+      user.data.serviceType = selectedService.label;
+
+      await delay(1000);
+      await client.sendMessage(from, selectedService.prompt);
+      user.step = "SERVICE_DETAILS";
+      return;
+    }
+
+    /* ===============================
+       STEP 4C: PRODUCTS MENU
+       =============================== */
+    if (user.step === "PRODUCTS_MENU") {
+      const selectedProduct = matchOption(lower, PRODUCT_OPTIONS);
+      if (!selectedProduct) {
+        await client.sendMessage(from, "Please choose a product from the menu 🙂");
+        return;
+      }
+
+      if (selectedProduct.id === "main_menu") {
+        await delay(1000);
+        await client.sendMessage(from, MAIN_MENU_TEXT);
+        user.step = "MENU";
+        return;
+      }
+
+      user.data.reason = "Products";
+      user.data.productType = selectedProduct.label;
+
+      await delay(1000);
+      await client.sendMessage(from, PRODUCT_DETAILS_PROMPT);
+      user.step = "PRODUCT_REQUIREMENTS";
+      return;
+    }
+
+    /* ===============================
+       STEP 5: SERVICE DETAILS
+       =============================== */
+    if (user.step === "SERVICE_DETAILS") {
+      user.data.serviceDetails = text;
+      user.data.message = buildRequirementSummary({ user, phone });
+
+      await finalizeLead({ user, from, phone, assignedAdminId });
+      return;
+    }
+
+    /* ===============================
+       STEP 6: PRODUCT REQUIREMENTS
+       =============================== */
+    if (user.step === "PRODUCT_REQUIREMENTS") {
+      user.data.productDetails = text;
 
       await delay(1000);
       await client.sendMessage(
         from,
-        `Thank you ${user.isReturningUser ? user.name : user.data.name} 😊
-Our team will contact you shortly.`
+        "Please share your *full delivery address with pin code* (पूरा पता + पिन कोड)."
       );
+      user.step = "PRODUCT_ADDRESS";
+      return;
+    }
 
-      delete users[from];
+    /* ===============================
+       STEP 7: PRODUCT ADDRESS
+       =============================== */
+    if (user.step === "PRODUCT_ADDRESS") {
+      user.data.address = text;
+
+      await delay(1000);
+      await client.sendMessage(
+        from,
+        "Alternate contact number (optional). If none, reply *NA*."
+      );
+      user.step = "PRODUCT_ALT_CONTACT";
+      return;
+    }
+
+    /* ===============================
+       STEP 8: PRODUCT ALT CONTACT
+       =============================== */
+    if (user.step === "PRODUCT_ALT_CONTACT") {
+      user.data.altContact = text;
+      user.data.message = buildRequirementSummary({ user, phone });
+
+      await finalizeLead({ user, from, phone, assignedAdminId });
+      return;
+    }
+
+    /* ===============================
+       STEP 9: EXECUTIVE MESSAGE
+       =============================== */
+    if (user.step === "EXECUTIVE_MESSAGE") {
+      user.data.executiveMessage = text;
+      user.data.message = buildRequirementSummary({ user, phone });
+
+      await finalizeLead({ user, from, phone, assignedAdminId });
+      return;
     }
   } catch (err) {
     console.error("❌ Automation error:", err);
