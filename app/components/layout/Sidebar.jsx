@@ -34,6 +34,7 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
     // { name: 'Templates', icon: faFileLines, path: '/templates' },
     { name: 'Reports', icon: faChartBar, path: '/reports' },
     // { name: 'Team', icon: faUserGroup, path: '/team' },
+    { name: 'Admins', icon: faUserGroup, path: '/admins', roles: ['super_admin'] },
     { name: 'Settings', icon: faGear, path: '/settings' },
   ];
   const visibleItems = filterMenuItems(user?.admin_tier, menuItems);
