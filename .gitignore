@@ -1,1 +1,13 @@
-node_modules
+# WhatsApp session
+.wwebjs_auth/
+
+# Next.js build
+.next/
+out/
+build/
+
+# Env files
+.env
+.env.local
+
+node_modules/

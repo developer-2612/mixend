@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///var/www/html/mex-end/app/page.jsx"],"sourcesContent":["'use client';\nimport { useEffect } from 'react';\nimport { useRouter } from 'next/navigation';\nimport { useAuth } from './components/auth/AuthProvider.jsx';\n\nexport default function Home() {\n  const router = useRouter();\n  const { user, loading } = useAuth();\n\n  useEffect(() => {\n    if (loading) return;\n    router.push(user ? '/dashboard' : '/login');\n  }, [router, user, loading]);\n\n  return (\n    <div className=\"flex items-center justify-center h-screen bg-aa-light-bg\">\n      <p className=\"text-aa-gray\">Loading...</p>\n    </div>\n  );\n}\n"],"names":[],"mappings":";;;;;AACA;AACA;AACA;AAHA;;;;;AAKe,SAAS;IACtB,MAAM,SAAS,IAAA,+IAAS;IACxB,MAAM,EAAE,IAAI,EAAE,OAAO,EAAE,GAAG,IAAA,qJAAO;IAEjC,IAAA,kNAAS,EAAC;QACR,IAAI,SAAS;QACb,OAAO,IAAI,CAAC,OAAO,eAAe;IACpC,GAAG;QAAC;QAAQ;QAAM;KAAQ;IAE1B,qBACE,8OAAC;QAAI,WAAU;kBACb,cAAA,8OAAC;YAAE,WAAU;sBAAe;;;;;;;;;;;AAGlC"}}]
-}
