@@ -1,15 +1,15 @@
 import { requireAuth } from '../../../../lib/auth-server';
-import { updateRequirementStatus } from '../../../../lib/db-helpers';
+import { updateAppointmentStatus } from '../../../../lib/db-helpers';
 
-const ALLOWED_STATUSES = new Set(['pending', 'in_progress', 'completed']);
+const ALLOWED_STATUSES = new Set(['booked', 'completed', 'cancelled']);
 
 export async function PATCH(request, context) {
   try {
     const authUser = await requireAuth();
     const params = await context.params;
-    const requirementId = Number(params?.id);
-    if (!Number.isFinite(requirementId)) {
-      return Response.json({ success: false, error: 'Invalid requirement id' }, { status: 400 });
+    const appointmentId = Number(params?.id);
+    if (!Number.isFinite(appointmentId)) {
+      return Response.json({ success: false, error: 'Invalid appointment id' }, { status: 400 });
     }
 
     const body = await request.json();
@@ -18,13 +18,9 @@ export async function PATCH(request, context) {
       return Response.json({ success: false, error: 'Invalid status' }, { status: 400 });
     }
 
-    const updated = await updateRequirementStatus(
-      requirementId,
-      status,
-      authUser.id
-    );
+    const updated = await updateAppointmentStatus(appointmentId, status, authUser.id);
     if (!updated) {
-      return Response.json({ success: false, error: 'Requirement not found' }, { status: 404 });
+      return Response.json({ success: false, error: 'Appointment not found' }, { status: 404 });
     }
 
     return Response.json({ success: true, data: updated });

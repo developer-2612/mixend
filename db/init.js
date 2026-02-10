@@ -125,6 +125,27 @@ async function ensureAdminWhatsappColumns(client) {
   }
 }
 
+async function ensureAdminProfileColumns(client) {
+  const columns = [
+    {
+      name: "profession",
+      sql: "ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS profession VARCHAR(50) DEFAULT 'astrology'",
+    },
+    {
+      name: "profession_request",
+      sql: "ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS profession_request VARCHAR(50)",
+    },
+    {
+      name: "profession_requested_at",
+      sql: "ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS profession_requested_at TIMESTAMPTZ",
+    },
+  ];
+
+  for (const column of columns) {
+    await client.query(column.sql);
+  }
+}
+
 async function ensureAdminAIColumns(client) {
   const columns = [
     { name: "ai_enabled", sql: "ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS ai_enabled BOOLEAN DEFAULT FALSE" },
@@ -172,6 +193,9 @@ export async function initDatabase() {
         password_hash TEXT,
         admin_tier VARCHAR(20) DEFAULT 'client_admin' CHECK (admin_tier IN ('super_admin', 'client_admin')),
         status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+        profession VARCHAR(50) DEFAULT 'astrology',
+        profession_request VARCHAR(50),
+        profession_requested_at TIMESTAMPTZ,
         parent_admin_id INT REFERENCES admin_accounts(id),
         last_login TIMESTAMPTZ,
         whatsapp_number VARCHAR(20),
@@ -232,6 +256,24 @@ export async function initDatabase() {
       `CREATE INDEX IF NOT EXISTS user_requirements_created_idx ON user_requirements (created_at)`,
 
       `
+      CREATE TABLE IF NOT EXISTS appointments (
+        id SERIAL PRIMARY KEY,
+        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        admin_id INT NOT NULL REFERENCES admin_accounts(id),
+        profession VARCHAR(50),
+        appointment_type VARCHAR(100),
+        start_time TIMESTAMPTZ NOT NULL,
+        end_time TIMESTAMPTZ NOT NULL,
+        status VARCHAR(20) DEFAULT 'booked' CHECK (status IN ('booked', 'completed', 'cancelled')),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+      `,
+      `CREATE UNIQUE INDEX IF NOT EXISTS appointments_admin_start_idx ON appointments (admin_id, start_time)`,
+      `CREATE INDEX IF NOT EXISTS appointments_user_idx ON appointments (user_id)`,
+      `CREATE INDEX IF NOT EXISTS appointments_start_idx ON appointments (start_time)`,
+
+      `
       CREATE TABLE IF NOT EXISTS user_needs (
         id SERIAL PRIMARY KEY,
         user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -287,6 +329,7 @@ export async function initDatabase() {
     }
 
     await ensureAdminWhatsappColumns(client);
+    await ensureAdminProfileColumns(client);
     await ensureAdminAIColumns(client);
     await ensureAdminPasswordResetColumns(client);
     await ensureDefaultSuperAdmin(client);

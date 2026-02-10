@@ -9,6 +9,15 @@ export async function POST(request) {
     const email = (body.email || '').trim() || null;
     const phone = (body.phone || '').trim();
     const password = body.password || '';
+    const professionRaw = typeof body.profession === 'string' ? body.profession.trim() : '';
+    const allowedProfessions = new Set([
+      'astrology',
+      'clinic',
+      'restaurant',
+      'salon',
+      'shop',
+    ]);
+    const profession = allowedProfessions.has(professionRaw) ? professionRaw : 'astrology';
     const desiredTier = body.admin_tier === 'super_admin' ? 'super_admin' : 'client_admin';
 
     if (!name || !phone || !password) {
@@ -59,10 +68,10 @@ export async function POST(request) {
       const passwordHash = hashPassword(password);
 
       const [rows] = await connection.query(
-        `INSERT INTO admin_accounts (name, phone, email, password_hash, admin_tier, status)
-         VALUES (?, ?, ?, ?, ?, 'active')
+        `INSERT INTO admin_accounts (name, phone, email, password_hash, admin_tier, status, profession)
+         VALUES (?, ?, ?, ?, ?, 'active', ?)
          RETURNING id`,
-        [name, phone, email, passwordHash, adminTier]
+        [name, phone, email, passwordHash, adminTier, profession]
       );
       const insertedId = rows[0]?.id;
 
@@ -72,6 +81,7 @@ export async function POST(request) {
         email,
         phone,
         admin_tier: adminTier,
+        profession,
       });
 
       const response = NextResponse.json({
@@ -81,6 +91,7 @@ export async function POST(request) {
           email,
           phone,
           admin_tier: adminTier,
+          profession,
         },
       });
 

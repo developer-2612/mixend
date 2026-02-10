@@ -28,7 +28,7 @@ export async function POST(request) {
         : '';
 
       const [users] = await connection.execute(
-        `SELECT id, name, email, phone, password_hash, admin_tier, status
+        `SELECT id, name, email, phone, password_hash, admin_tier, status, profession
          FROM admin_accounts
          WHERE LOWER(email) = ?${phoneClause} OR id = ?
          LIMIT 1`,
@@ -64,6 +64,7 @@ export async function POST(request) {
         email: user.email,
         phone: user.phone,
         admin_tier: user.admin_tier,
+        profession: user.profession,
       });
 
       const response = NextResponse.json({
@@ -73,6 +74,7 @@ export async function POST(request) {
           email: user.email,
           phone: user.phone,
           admin_tier: user.admin_tier,
+          profession: user.profession,
         },
       });
 

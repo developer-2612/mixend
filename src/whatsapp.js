@@ -2,6 +2,19 @@ import pkg from "whatsapp-web.js";
 import qrcode from "qrcode-terminal";
 import qrImage from "qrcode";
 import { EventEmitter } from "node:events";
+import {
+  addDays,
+  addMinutes,
+  addMonths,
+  format,
+  isAfter,
+  isBefore,
+  isValid,
+  parse,
+  setHours,
+  setMinutes,
+  startOfDay,
+} from "date-fns";
 import { db } from "./db.js";
 
 const { Client, LocalAuth } = pkg;
@@ -59,6 +72,8 @@ const AI_SETTINGS_TTL_MS = Number(process.env.AI_SETTINGS_TTL_MS || 60_000);
 const aiSettingsCache = new Map();
 const DUPLICATE_WINDOW_MS = Number(process.env.WHATSAPP_DUP_WINDOW_MS || 10_000);
 const recentMessageIds = new Map();
+const ADMIN_PROFILE_TTL_MS = Number(process.env.ADMIN_PROFILE_TTL_MS || 60_000);
+const adminProfileCache = new Map();
 
 const getMessageKey = (message) => {
   const serialized = message?.id?._serialized || message?.id?.id;
@@ -108,6 +123,25 @@ const getAdminAISettings = async (adminId) => {
   );
   const data = rows[0] || { ai_enabled: false, ai_prompt: null, ai_blocklist: null };
   aiSettingsCache.set(adminId, { at: now, data });
+  return data;
+};
+
+const getAdminAutomationProfile = async (adminId) => {
+  if (!Number.isFinite(adminId)) return null;
+  const cached = adminProfileCache.get(adminId);
+  const now = Date.now();
+  if (cached && now - cached.at < ADMIN_PROFILE_TTL_MS) {
+    return cached.data;
+  }
+  const [rows] = await db.query(
+    `SELECT profession
+     FROM admin_accounts
+     WHERE id = ?
+     LIMIT 1`,
+    [adminId]
+  );
+  const data = rows[0] || { profession: DEFAULT_PROFESSION };
+  adminProfileCache.set(adminId, { at: now, data });
   return data;
 };
 
@@ -378,193 +412,797 @@ const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 /* ===============================
    🤖 BOT CONTENT & HELPERS
    =============================== */
-const MAIN_MENU_TEXT = [
-  "Namaste/Hello 🙏",
-  "I am a helper bot for *Neeraj Astrology*.",
-  "",
-  "How can I help you today? / Aaj aapko kis cheez me madad chahiye?",
-  "",
-  "1️⃣ Services (सेवाएं)",
-  "2️⃣ Products / Stones (प्रोडक्ट्स / रत्न)",
-  "3️⃣ Talk to an Executive (एक्सपर्ट से बात)",
-  "",
-  "_Reply with 1, 2, or 3, or type your need_",
-].join("\n");
+const TWO_MINUTES_MS = 2 * 60 * 1000;
+const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+const APPOINTMENT_START_HOUR = Number(process.env.APPOINTMENT_START_HOUR || 9);
+const APPOINTMENT_END_HOUR = Number(process.env.APPOINTMENT_END_HOUR || 20);
+const APPOINTMENT_SLOT_MINUTES = Number(process.env.APPOINTMENT_SLOT_MINUTES || 60);
+const APPOINTMENT_WINDOW_MONTHS = Number(process.env.APPOINTMENT_WINDOW_MONTHS || 3);
 
-const returningMenuText = (name) =>
+const DEFAULT_PROFESSION = "astrology";
+
+const buildMainMenuText = ({ brandName, serviceLabel, productLabel, execLabel }) =>
+  [
+    "Namaste/Hello 🙏",
+    `I am a helper bot for *${brandName}*.`,
+    "",
+    "How can I help you today?",
+    "",
+    `1️⃣ ${serviceLabel}`,
+    `2️⃣ ${productLabel}`,
+    `3️⃣ ${execLabel}`,
+    "",
+    "_Reply with 1, 2, or 3, or type your need_",
+  ].join("\n");
+
+const buildReturningMenuText = ({ serviceLabel, productLabel, execLabel }, name) =>
   [
     `Welcome back ${name} 👋`,
     "",
-    "How can we help you today? / Aaj aapko kis cheez me madad chahiye?",
+    "How can we help you today?",
+    "",
+    `1️⃣ ${serviceLabel}`,
+    `2️⃣ ${productLabel}`,
+    `3️⃣ ${execLabel}`,
+    "",
+    "_Reply with 1, 2, or 3, or type your need_",
+  ].join("\n");
+
+const buildDetectMainIntent =
+  ({ serviceKeywords = [], productKeywords = [] }) =>
+  (input) => {
+    const execKeywords = ["executive", "agent", "human", "call", "talk", "support", "baat"];
+    if (textHasAny(input, execKeywords)) return "EXECUTIVE";
+
+    const wantsService = textHasAny(input, serviceKeywords);
+    const wantsProduct = textHasAny(input, productKeywords);
+
+    if (wantsService && !wantsProduct) return "SERVICES";
+    if (wantsProduct && !wantsService) return "PRODUCTS";
+    return null;
+  };
+
+const ASTROLOGY_PROFILE = {
+  id: "astrology",
+  brandName: "Neeraj Astrology",
+  serviceLabel: "Services (सेवाएं)",
+  productLabel: "Products / Stones (प्रोडक्ट्स / रत्न)",
+  execLabel: "Talk to an Executive (एक्सपर्ट से बात)",
+  supportsAppointments: true,
+  appointmentKeywords: ["appointment", "consultation", "booking", "schedule", "meet"],
+  mainMenuText: [
+    "Namaste/Hello 🙏",
+    "I am a helper bot for *Neeraj Astrology*.",
+    "",
+    "How can I help you today? / Aaj aapko kis cheez me madad chahiye?",
     "",
     "1️⃣ Services (सेवाएं)",
     "2️⃣ Products / Stones (प्रोडक्ट्स / रत्न)",
     "3️⃣ Talk to an Executive (एक्सपर्ट से बात)",
     "",
     "_Reply with 1, 2, or 3, or type your need_",
-  ].join("\n");
-
-const SERVICES_MENU_TEXT = [
-  "Services Menu / सेवाएं:",
-  "1️⃣ Kundli / Birth Chart (कुंडली)",
-  "2️⃣ Vastu Consultation (वास्तु सलाह)",
-  "3️⃣ Gemstone Recommendation (रत्न सलाह)",
-  "4️⃣ Pooja / Paath Booking (पूजा/पाठ)",
-  "5️⃣ Shaadi / Marriage Guidance (शादी/विवाह)",
-  "6️⃣ Kaal Sarp Dosh / Sarpdosh Pooja (कालसर्प दोष पूजा)",
-  "7️⃣ Talk to Executive",
-  "8️⃣ Main Menu",
-  "",
-  "_Reply with a number or type the service name_",
-].join("\n");
-
-const PRODUCTS_MENU_TEXT = [
-  "Products Menu / प्रोडक्ट्स:",
-  "1️⃣ Navaratna Set",
-  "2️⃣ Ruby (Manik) / माणिक",
-  "3️⃣ Emerald (Panna) / पन्ना",
-  "4️⃣ Yellow Sapphire (Pukhraj) / पुखराज",
-  "5️⃣ Blue Sapphire (Neelam) / नीलम",
-  "6️⃣ Pearl (Moti) / मोती",
-  "7️⃣ Diamond (Heera) / हीरा",
-  "8️⃣ Coral (Moonga) / मूंगा",
-  "9️⃣ Hessonite (Gomed) / गोमेद",
-  "10️⃣ Cat's Eye (Lehsunia) / लहसुनिया",
-  "11️⃣ Opal / ओपल",
-  "12️⃣ Amethyst / जमुनिया",
-  "13️⃣ Topaz / टोपाज़",
-  "14️⃣ Turquoise / फिरोज़ा",
-  "15️⃣ Moonstone / चंद्रकांत",
-  "16️⃣ Other Stone / अन्य",
-  "17️⃣ Main Menu",
-  "",
-  "_Reply with a number or type stone name_",
-].join("\n");
-
-const PRODUCT_DETAILS_PROMPT =
-  "Great choice 👍\nPlease share product details (stone name, carat/size, ring/pendant, purpose).\nPrices vary by quality/weight; we will share the best current estimate after details.";
-
-const TWO_MINUTES_MS = 2 * 60 * 1000;
-const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
-
-const SERVICE_OPTIONS = [
-  {
-    id: "kundli",
-    number: "1",
-    label: "Kundli / Birth Chart (कुंडली)",
-    keywords: [
+  ].join("\n"),
+  returningMenuText: (name) =>
+    [
+      `Welcome back ${name} 👋`,
+      "",
+      "How can we help you today? / Aaj aapko kis cheez me madad chahiye?",
+      "",
+      "1️⃣ Services (सेवाएं)",
+      "2️⃣ Products / Stones (प्रोडक्ट्स / रत्न)",
+      "3️⃣ Talk to an Executive (एक्सपर्ट से बात)",
+      "",
+      "_Reply with 1, 2, or 3, or type your need_",
+    ].join("\n"),
+  servicesMenuText: [
+    "Services Menu / सेवाएं:",
+    "1️⃣ Kundli / Birth Chart (कुंडली)",
+    "2️⃣ Vastu Consultation (वास्तु सलाह)",
+    "3️⃣ Gemstone Recommendation (रत्न सलाह)",
+    "4️⃣ Pooja / Paath Booking (पूजा/पाठ)",
+    "5️⃣ Shaadi / Marriage Guidance (शादी/विवाह)",
+    "6️⃣ Kaal Sarp Dosh / Sarpdosh Pooja (कालसर्प दोष पूजा)",
+    "7️⃣ Talk to Executive",
+    "8️⃣ Main Menu",
+    "",
+    "_Reply with a number or type the service name_",
+  ].join("\n"),
+  productsMenuText: [
+    "Products Menu / प्रोडक्ट्स:",
+    "1️⃣ Navaratna Set",
+    "2️⃣ Ruby (Manik) / माणिक",
+    "3️⃣ Emerald (Panna) / पन्ना",
+    "4️⃣ Yellow Sapphire (Pukhraj) / पुखराज",
+    "5️⃣ Blue Sapphire (Neelam) / नीलम",
+    "6️⃣ Pearl (Moti) / मोती",
+    "7️⃣ Diamond (Heera) / हीरा",
+    "8️⃣ Coral (Moonga) / मूंगा",
+    "9️⃣ Hessonite (Gomed) / गोमेद",
+    "10️⃣ Cat's Eye (Lehsunia) / लहसुनिया",
+    "11️⃣ Opal / ओपल",
+    "12️⃣ Amethyst / जमुनिया",
+    "13️⃣ Topaz / टोपाज़",
+    "14️⃣ Turquoise / फिरोज़ा",
+    "15️⃣ Moonstone / चंद्रकांत",
+    "16️⃣ Other Stone / अन्य",
+    "17️⃣ Main Menu",
+    "",
+    "_Reply with a number or type stone name_",
+  ].join("\n"),
+  productDetailsPrompt:
+    "Great choice 👍\nPlease share product details (stone name, carat/size, ring/pendant, purpose).\nPrices vary by quality/weight; we will share the best current estimate after details.",
+  serviceOptions: [
+    {
+      id: "kundli",
+      number: "1",
+      label: "Kundli / Birth Chart (कुंडली)",
+      keywords: [
+        "kundli",
+        "kundali",
+        "janam",
+        "patrika",
+        "birth chart",
+        "horoscope",
+        "कुंडली",
+      ],
+      prompt:
+        "Kundli ke liye apni *DOB (DD/MM/YYYY)*, *birth time*, aur *birth place (city)* bhejiye.\nअगर कोई specific समस्या है तो वो भी लिखें.",
+    },
+    {
+      id: "vastu",
+      number: "2",
+      label: "Vastu Consultation (वास्तु सलाह)",
+      keywords: ["vastu", "vaastu", "वास्तु"],
+      prompt:
+        "Vastu ke liye property type (home/office), city, aur concern/issue share karein.",
+    },
+    {
+      id: "gemstone",
+      number: "3",
+      label: "Gemstone Recommendation (रत्न सलाह)",
+      keywords: [
+        "gemstone",
+        "stone",
+        "ratna",
+        "pukhraj",
+        "neelam",
+        "panna",
+        "manik",
+        "moti",
+        "heera",
+        "gomed",
+        "lehsunia",
+        "moonga",
+        "ruby",
+        "emerald",
+        "sapphire",
+        "pearl",
+        "diamond",
+        "रत्न",
+      ],
+      prompt:
+        "Gemstone recommendation ke liye apni *DOB*, *birth time*, *birth place*, aur concern (career/health/marriage) bhejiye.",
+    },
+    {
+      id: "pooja",
+      number: "4",
+      label: "Pooja / Paath Booking (पूजा/पाठ)",
+      keywords: ["pooja", "puja", "paath", "path", "havan", "yagya", "पूजा", "पाठ"],
+      prompt:
+        "Pooja/Paath booking ke liye pooja type, preferred date, aur city/location share karein.",
+    },
+    {
+      id: "shaadi",
+      number: "5",
+      label: "Shaadi / Marriage Guidance (शादी/विवाह)",
+      keywords: ["shaadi", "shadi", "marriage", "vivah", "muhurat", "शादी", "विवाह"],
+      prompt:
+        "Shaadi guidance ke liye bride & groom ki *DOB*, *birth time*, *birth place* aur requirement (matching/muhurat) bhejiye.",
+    },
+    {
+      id: "kaalsarp",
+      number: "6",
+      label: "Kaal Sarp Dosh / Sarpdosh Pooja (कालसर्प दोष पूजा)",
+      keywords: [
+        "kaal sarp",
+        "kalsarp",
+        "kal sarp",
+        "sarpdosh",
+        "sarpa dosh",
+        "nag dosh",
+        "कालसर्प",
+        "सर्पदोष",
+      ],
+      prompt:
+        "Kaal Sarp Dosh Pooja ke liye apni *DOB*, *birth time*, *birth place*, preferred date, aur city share karein.",
+    },
+    {
+      id: "executive",
+      number: "7",
+      label: "Talk to Executive",
+      keywords: ["executive", "agent", "human", "call", "talk", "baat", "help"],
+    },
+    {
+      id: "main_menu",
+      number: "8",
+      label: "Main Menu",
+      keywords: ["menu", "main menu", "back", "home", "मुख्य मेनू", "मेनू"],
+    },
+  ],
+  productOptions: [
+    { id: "navaratna", number: "1", label: "Navaratna Set", keywords: ["navaratna", "navratan"] },
+    { id: "ruby", number: "2", label: "Ruby (Manik)", keywords: ["ruby", "manik", "माणिक"] },
+    { id: "emerald", number: "3", label: "Emerald (Panna)", keywords: ["emerald", "panna", "पन्ना"] },
+    { id: "yellow_sapphire", number: "4", label: "Yellow Sapphire (Pukhraj)", keywords: ["yellow sapphire", "pukhraj", "पुखराज"] },
+    { id: "blue_sapphire", number: "5", label: "Blue Sapphire (Neelam)", keywords: ["blue sapphire", "neelam", "नीलम"] },
+    { id: "pearl", number: "6", label: "Pearl (Moti)", keywords: ["pearl", "moti", "मोती"] },
+    { id: "diamond", number: "7", label: "Diamond (Heera)", keywords: ["diamond", "heera", "हीरा"] },
+    { id: "coral", number: "8", label: "Coral (Moonga)", keywords: ["coral", "moonga", "मूंगा"] },
+    { id: "hessonite", number: "9", label: "Hessonite (Gomed)", keywords: ["hessonite", "gomed", "गोमेद"] },
+    { id: "catseye", number: "10", label: "Cat's Eye (Lehsunia)", keywords: ["cat's eye", "cats eye", "lehsunia", "लहसुनिया"] },
+    { id: "opal", number: "11", label: "Opal", keywords: ["opal", "ओपल"] },
+    { id: "amethyst", number: "12", label: "Amethyst", keywords: ["amethyst", "jamuniya", "जमुनिया"] },
+    { id: "topaz", number: "13", label: "Topaz", keywords: ["topaz", "टोपाज़"] },
+    { id: "turquoise", number: "14", label: "Turquoise", keywords: ["turquoise", "firoza", "फिरोज़ा"] },
+    { id: "moonstone", number: "15", label: "Moonstone", keywords: ["moonstone", "chandrakant", "चंद्रकांत"] },
+    { id: "other", number: "16", label: "Other Stone / Custom", keywords: ["other stone", "custom", "koi aur", "any other"] },
+    { id: "main_menu", number: "17", label: "Main Menu", keywords: ["menu", "main menu", "back", "home", "मुख्य मेनू", "मेनू"] },
+  ],
+  detectMainIntent: buildDetectMainIntent({
+    serviceKeywords: [
+      "service",
+      "seva",
       "kundli",
       "kundali",
-      "janam",
-      "patrika",
-      "birth chart",
-      "horoscope",
-      "कुंडली",
+      "vastu",
+      "pooja",
+      "puja",
+      "paath",
+      "path",
+      "gemstone recommendation",
+      "recommendation",
+      "consult",
+      "consultation",
+      "shaadi",
+      "marriage",
+      "vivah",
+      "muhurat",
+      "kaal sarp",
+      "sarpdosh",
+      "astro",
+      "astrology",
     ],
-    prompt:
-      "Kundli ke liye apni *DOB (DD/MM/YYYY)*, *birth time*, aur *birth place (city)* bhejiye.\nअगर कोई specific समस्या है तो वो भी लिखें.",
-  },
-  {
-    id: "vastu",
-    number: "2",
-    label: "Vastu Consultation (वास्तु सलाह)",
-    keywords: ["vastu", "vaastu", "वास्तु"],
-    prompt:
-      "Vastu ke liye property type (home/office), city, aur concern/issue share karein.",
-  },
-  {
-    id: "gemstone",
-    number: "3",
-    label: "Gemstone Recommendation (रत्न सलाह)",
-    keywords: [
-      "gemstone",
+    productKeywords: [
+      "product",
       "stone",
+      "gemstone",
+      "ring",
+      "pendant",
+      "mala",
       "ratna",
-      "pukhraj",
+      "buy",
+      "order",
+      "price",
+      "cost",
+      "pearl",
+      "diamond",
+      "ruby",
+      "emerald",
+      "sapphire",
       "neelam",
       "panna",
       "manik",
       "moti",
       "heera",
+      "pukhraj",
       "gomed",
       "lehsunia",
       "moonga",
-      "ruby",
-      "emerald",
-      "sapphire",
-      "pearl",
-      "diamond",
-      "रत्न",
     ],
-    prompt:
-      "Gemstone recommendation ke liye apni *DOB*, *birth time*, *birth place*, aur concern (career/health/marriage) bhejiye.",
-  },
-  {
-    id: "pooja",
-    number: "4",
-    label: "Pooja / Paath Booking (पूजा/पाठ)",
-    keywords: ["pooja", "puja", "paath", "path", "havan", "yagya", "पूजा", "पाठ"],
-    prompt:
-      "Pooja/Paath booking ke liye pooja type, preferred date, aur city/location share karein.",
-  },
-  {
-    id: "shaadi",
-    number: "5",
-    label: "Shaadi / Marriage Guidance (शादी/विवाह)",
-    keywords: ["shaadi", "shadi", "marriage", "vivah", "muhurat", "शादी", "विवाह"],
-    prompt:
-      "Shaadi guidance ke liye bride & groom ki *DOB*, *birth time*, *birth place* aur requirement (matching/muhurat) bhejiye.",
-  },
-  {
-    id: "kaalsarp",
-    number: "6",
-    label: "Kaal Sarp Dosh / Sarpdosh Pooja (कालसर्प दोष पूजा)",
-    keywords: [
-      "kaal sarp",
-      "kalsarp",
-      "kal sarp",
-      "sarpdosh",
-      "sarpa dosh",
-      "nag dosh",
-      "कालसर्प",
-      "सर्पदोष",
-    ],
-    prompt:
-      "Kaal Sarp Dosh Pooja ke liye apni *DOB*, *birth time*, *birth place*, preferred date, aur city share karein.",
-  },
-  {
-    id: "executive",
-    number: "7",
-    label: "Talk to Executive",
-    keywords: ["executive", "agent", "human", "call", "talk", "baat", "help"],
-  },
-  {
-    id: "main_menu",
-    number: "8",
-    label: "Main Menu",
-    keywords: ["menu", "main menu", "back", "home", "मुख्य मेनू", "मेनू"],
-  },
-];
+  }),
+};
 
-const PRODUCT_OPTIONS = [
-  { id: "navaratna", number: "1", label: "Navaratna Set", keywords: ["navaratna", "navratan"] },
-  { id: "ruby", number: "2", label: "Ruby (Manik)", keywords: ["ruby", "manik", "माणिक"] },
-  { id: "emerald", number: "3", label: "Emerald (Panna)", keywords: ["emerald", "panna", "पन्ना"] },
-  { id: "yellow_sapphire", number: "4", label: "Yellow Sapphire (Pukhraj)", keywords: ["yellow sapphire", "pukhraj", "पुखराज"] },
-  { id: "blue_sapphire", number: "5", label: "Blue Sapphire (Neelam)", keywords: ["blue sapphire", "neelam", "नीलम"] },
-  { id: "pearl", number: "6", label: "Pearl (Moti)", keywords: ["pearl", "moti", "मोती"] },
-  { id: "diamond", number: "7", label: "Diamond (Heera)", keywords: ["diamond", "heera", "हीरा"] },
-  { id: "coral", number: "8", label: "Coral (Moonga)", keywords: ["coral", "moonga", "मूंगा"] },
-  { id: "hessonite", number: "9", label: "Hessonite (Gomed)", keywords: ["hessonite", "gomed", "गोमेद"] },
-  { id: "catseye", number: "10", label: "Cat's Eye (Lehsunia)", keywords: ["cat's eye", "cats eye", "lehsunia", "लहसुनिया"] },
-  { id: "opal", number: "11", label: "Opal", keywords: ["opal", "ओपल"] },
-  { id: "amethyst", number: "12", label: "Amethyst", keywords: ["amethyst", "jamuniya", "जमुनिया"] },
-  { id: "topaz", number: "13", label: "Topaz", keywords: ["topaz", "टोपाज़"] },
-  { id: "turquoise", number: "14", label: "Turquoise", keywords: ["turquoise", "firoza", "फिरोज़ा"] },
-  { id: "moonstone", number: "15", label: "Moonstone", keywords: ["moonstone", "chandrakant", "चंद्रकांत"] },
-  { id: "other", number: "16", label: "Other Stone / Custom", keywords: ["other stone", "custom", "koi aur", "any other"] },
-  { id: "main_menu", number: "17", label: "Main Menu", keywords: ["menu", "main menu", "back", "home", "मुख्य मेनू", "मेनू"] },
-];
+const CLINIC_PROFILE = {
+  id: "clinic",
+  brandName: "Your Clinic",
+  serviceLabel: "Appointments & Consultations",
+  productLabel: "Reports / Pharmacy",
+  execLabel: "Talk to Executive",
+  supportsAppointments: true,
+  appointmentKeywords: ["appointment", "doctor", "clinic", "consultation", "book", "schedule"],
+  mainMenuText: buildMainMenuText({
+    brandName: "Your Clinic",
+    serviceLabel: "Appointments & Consultations",
+    productLabel: "Reports / Pharmacy",
+    execLabel: "Talk to Executive",
+  }),
+  returningMenuText: (name) =>
+    buildReturningMenuText(
+      {
+        serviceLabel: "Appointments & Consultations",
+        productLabel: "Reports / Pharmacy",
+        execLabel: "Talk to Executive",
+      },
+      name
+    ),
+  servicesMenuText: [
+    "Clinic Services:",
+    "1️⃣ Doctor Appointment",
+    "2️⃣ Online Consultation",
+    "3️⃣ Lab Test Booking",
+    "4️⃣ Follow-up / Prescription",
+    "5️⃣ Talk to Executive",
+    "6️⃣ Main Menu",
+    "",
+    "_Reply with a number or type the service name_",
+  ].join("\n"),
+  productsMenuText: [
+    "Reports & Pharmacy:",
+    "1️⃣ Medicine / Pharmacy Order",
+    "2️⃣ Health Package",
+    "3️⃣ Report Copy",
+    "4️⃣ Main Menu",
+    "",
+    "_Reply with a number or type your need_",
+  ].join("\n"),
+  productDetailsPrompt:
+    "Please share medicine/package/report name, quantity, and prescription (if any).",
+  serviceOptions: [
+    {
+      id: "appointment",
+      number: "1",
+      label: "Doctor Appointment",
+      keywords: ["appointment", "doctor", "clinic", "checkup", "booking"],
+      bookable: true,
+      prompt:
+        "Please share patient name, preferred date/time, doctor (if any), and concern.",
+    },
+    {
+      id: "consultation",
+      number: "2",
+      label: "Online Consultation",
+      keywords: ["consultation", "online", "video", "call"],
+      bookable: true,
+      prompt:
+        "Please share patient name, preferred date/time, and concern for consultation.",
+    },
+    {
+      id: "lab",
+      number: "3",
+      label: "Lab Test Booking",
+      keywords: ["lab", "test", "blood", "report"],
+      bookable: true,
+      prompt:
+        "Please share test name(s), preferred date/time, and patient age.",
+    },
+    {
+      id: "followup",
+      number: "4",
+      label: "Follow-up / Prescription",
+      keywords: ["follow up", "followup", "prescription", "review"],
+      prompt:
+        "Please share patient name and previous visit details or prescription reference.",
+    },
+    {
+      id: "executive",
+      number: "5",
+      label: "Talk to Executive",
+      keywords: ["executive", "agent", "human", "call", "talk", "help"],
+    },
+    {
+      id: "main_menu",
+      number: "6",
+      label: "Main Menu",
+      keywords: ["menu", "main menu", "back", "home"],
+    },
+  ],
+  productOptions: [
+    {
+      id: "medicine",
+      number: "1",
+      label: "Medicine / Pharmacy Order",
+      keywords: ["medicine", "pharmacy", "tablet", "capsule", "drug"],
+    },
+    {
+      id: "package",
+      number: "2",
+      label: "Health Package",
+      keywords: ["package", "health package", "checkup"],
+    },
+    {
+      id: "report_copy",
+      number: "3",
+      label: "Report Copy",
+      keywords: ["report copy", "report", "results"],
+    },
+    {
+      id: "main_menu",
+      number: "4",
+      label: "Main Menu",
+      keywords: ["menu", "main menu", "back", "home"],
+    },
+  ],
+  detectMainIntent: buildDetectMainIntent({
+    serviceKeywords: ["appointment", "doctor", "clinic", "consultation", "checkup", "lab", "test"],
+    productKeywords: ["medicine", "pharmacy", "report", "package", "prescription"],
+  }),
+};
+
+const RESTAURANT_PROFILE = {
+  id: "restaurant",
+  brandName: "Your Restaurant",
+  serviceLabel: "Reservations & Events",
+  productLabel: "Order Food",
+  execLabel: "Talk to Executive",
+  supportsAppointments: true,
+  appointmentKeywords: ["reservation", "table", "booking", "event", "catering"],
+  mainMenuText: buildMainMenuText({
+    brandName: "Your Restaurant",
+    serviceLabel: "Reservations & Events",
+    productLabel: "Order Food",
+    execLabel: "Talk to Executive",
+  }),
+  returningMenuText: (name) =>
+    buildReturningMenuText(
+      {
+        serviceLabel: "Reservations & Events",
+        productLabel: "Order Food",
+        execLabel: "Talk to Executive",
+      },
+      name
+    ),
+  servicesMenuText: [
+    "Reservations & Events:",
+    "1️⃣ Table Reservation",
+    "2️⃣ Catering / Party Order",
+    "3️⃣ Event Booking",
+    "4️⃣ Talk to Executive",
+    "5️⃣ Main Menu",
+    "",
+    "_Reply with a number or type the service name_",
+  ].join("\n"),
+  productsMenuText: [
+    "Food Orders:",
+    "1️⃣ Today's Menu",
+    "2️⃣ Place an Order",
+    "3️⃣ Special Request",
+    "4️⃣ Main Menu",
+    "",
+    "_Reply with a number or type your need_",
+  ].join("\n"),
+  productDetailsPrompt:
+    "Please share items, quantity, delivery address, and preferred time.",
+  serviceOptions: [
+    {
+      id: "reservation",
+      number: "1",
+      label: "Table Reservation",
+      keywords: ["table", "reservation", "booking"],
+      bookable: true,
+      prompt:
+        "Please share name, number of guests, preferred date/time, and contact number.",
+    },
+    {
+      id: "catering",
+      number: "2",
+      label: "Catering / Party Order",
+      keywords: ["catering", "party", "bulk", "event"],
+      bookable: true,
+      prompt:
+        "Please share event date, number of guests, menu preference, and location.",
+    },
+    {
+      id: "event",
+      number: "3",
+      label: "Event Booking",
+      keywords: ["event", "booking", "private"],
+      bookable: true,
+      prompt:
+        "Please share event date, guests count, and any special requirements.",
+    },
+    {
+      id: "executive",
+      number: "4",
+      label: "Talk to Executive",
+      keywords: ["executive", "agent", "human", "call", "talk", "help"],
+    },
+    {
+      id: "main_menu",
+      number: "5",
+      label: "Main Menu",
+      keywords: ["menu", "main menu", "back", "home"],
+    },
+  ],
+  productOptions: [
+    {
+      id: "menu",
+      number: "1",
+      label: "Today's Menu",
+      keywords: ["menu", "today", "specials"],
+    },
+    {
+      id: "order",
+      number: "2",
+      label: "Place an Order",
+      keywords: ["order", "food", "delivery", "takeaway"],
+    },
+    {
+      id: "special",
+      number: "3",
+      label: "Special Request",
+      keywords: ["special", "custom", "extra"],
+    },
+    {
+      id: "main_menu",
+      number: "4",
+      label: "Main Menu",
+      keywords: ["menu", "main menu", "back", "home"],
+    },
+  ],
+  detectMainIntent: buildDetectMainIntent({
+    serviceKeywords: ["reservation", "table", "booking", "party", "catering", "event"],
+    productKeywords: ["order", "food", "menu", "delivery", "takeaway"],
+  }),
+};
+
+const SALON_PROFILE = {
+  id: "salon",
+  brandName: "Your Salon",
+  serviceLabel: "Appointments",
+  productLabel: "Packages & Products",
+  execLabel: "Talk to Executive",
+  supportsAppointments: true,
+  appointmentKeywords: ["appointment", "salon", "haircut", "facial", "booking"],
+  mainMenuText: buildMainMenuText({
+    brandName: "Your Salon",
+    serviceLabel: "Appointments",
+    productLabel: "Packages & Products",
+    execLabel: "Talk to Executive",
+  }),
+  returningMenuText: (name) =>
+    buildReturningMenuText(
+      {
+        serviceLabel: "Appointments",
+        productLabel: "Packages & Products",
+        execLabel: "Talk to Executive",
+      },
+      name
+    ),
+  servicesMenuText: [
+    "Salon Services:",
+    "1️⃣ Haircut / Styling",
+    "2️⃣ Hair Color",
+    "3️⃣ Facial / Skin Care",
+    "4️⃣ Bridal / Party Makeup",
+    "5️⃣ Talk to Executive",
+    "6️⃣ Main Menu",
+    "",
+    "_Reply with a number or type the service name_",
+  ].join("\n"),
+  productsMenuText: [
+    "Packages & Products:",
+    "1️⃣ Service Package",
+    "2️⃣ Product Purchase",
+    "3️⃣ Gift Card",
+    "4️⃣ Main Menu",
+    "",
+    "_Reply with a number or type your need_",
+  ].join("\n"),
+  productDetailsPrompt:
+    "Please share package/product name and preferred date/time.",
+  serviceOptions: [
+    {
+      id: "haircut",
+      number: "1",
+      label: "Haircut / Styling",
+      keywords: ["haircut", "cut", "styling"],
+      bookable: true,
+      prompt:
+        "Please share preferred date/time and any styling preference.",
+    },
+    {
+      id: "color",
+      number: "2",
+      label: "Hair Color",
+      keywords: ["color", "colour", "highlights", "balayage"],
+      bookable: true,
+      prompt:
+        "Please share preferred date/time and color preference.",
+    },
+    {
+      id: "facial",
+      number: "3",
+      label: "Facial / Skin Care",
+      keywords: ["facial", "skin", "cleanup", "spa"],
+      bookable: true,
+      prompt:
+        "Please share preferred date/time and skin concern (if any).",
+    },
+    {
+      id: "bridal",
+      number: "4",
+      label: "Bridal / Party Makeup",
+      keywords: ["bridal", "party", "makeup", "make-up"],
+      bookable: true,
+      prompt:
+        "Please share event date/time and makeup requirement.",
+    },
+    {
+      id: "executive",
+      number: "5",
+      label: "Talk to Executive",
+      keywords: ["executive", "agent", "human", "call", "talk", "help"],
+    },
+    {
+      id: "main_menu",
+      number: "6",
+      label: "Main Menu",
+      keywords: ["menu", "main menu", "back", "home"],
+    },
+  ],
+  productOptions: [
+    {
+      id: "package",
+      number: "1",
+      label: "Service Package",
+      keywords: ["package", "combo", "deal"],
+    },
+    {
+      id: "product",
+      number: "2",
+      label: "Product Purchase",
+      keywords: ["product", "kit", "shampoo", "serum"],
+    },
+    {
+      id: "gift",
+      number: "3",
+      label: "Gift Card",
+      keywords: ["gift", "voucher", "card"],
+    },
+    {
+      id: "main_menu",
+      number: "4",
+      label: "Main Menu",
+      keywords: ["menu", "main menu", "back", "home"],
+    },
+  ],
+  detectMainIntent: buildDetectMainIntent({
+    serviceKeywords: ["appointment", "haircut", "color", "facial", "makeup", "salon"],
+    productKeywords: ["package", "product", "gift", "voucher", "kit"],
+  }),
+};
+
+const SHOP_PROFILE = {
+  id: "shop",
+  brandName: "Your Shop",
+  serviceLabel: "Availability & Store Visit",
+  productLabel: "Product Inquiry / Order",
+  execLabel: "Talk to Executive",
+  mainMenuText: buildMainMenuText({
+    brandName: "Your Shop",
+    serviceLabel: "Availability & Store Visit",
+    productLabel: "Product Inquiry / Order",
+    execLabel: "Talk to Executive",
+  }),
+  returningMenuText: (name) =>
+    buildReturningMenuText(
+      {
+        serviceLabel: "Availability & Store Visit",
+        productLabel: "Product Inquiry / Order",
+        execLabel: "Talk to Executive",
+      },
+      name
+    ),
+  servicesMenuText: [
+    "Store Services:",
+    "1️⃣ Check Availability",
+    "2️⃣ Store Visit / Appointment",
+    "3️⃣ Return / Exchange",
+    "4️⃣ Bulk Order",
+    "5️⃣ Talk to Executive",
+    "6️⃣ Main Menu",
+    "",
+    "_Reply with a number or type the service name_",
+  ].join("\n"),
+  productsMenuText: [
+    "Product Inquiry:",
+    "1️⃣ Price Inquiry",
+    "2️⃣ Place an Order",
+    "3️⃣ Catalog / Options",
+    "4️⃣ Main Menu",
+    "",
+    "_Reply with a number or type your need_",
+  ].join("\n"),
+  productDetailsPrompt:
+    "Please share product name, size/color, quantity, and delivery details (if needed).",
+  serviceOptions: [
+    {
+      id: "availability",
+      number: "1",
+      label: "Check Availability",
+      keywords: ["availability", "in stock", "stock"],
+      prompt:
+        "Please share the product name, size/color, and quantity to check availability.",
+    },
+    {
+      id: "visit",
+      number: "2",
+      label: "Store Visit / Appointment",
+      keywords: ["visit", "appointment", "store"],
+      prompt:
+        "Please share preferred date/time for your visit.",
+    },
+    {
+      id: "return",
+      number: "3",
+      label: "Return / Exchange",
+      keywords: ["return", "exchange", "refund"],
+      prompt:
+        "Please share order details and reason for return/exchange.",
+    },
+    {
+      id: "bulk",
+      number: "4",
+      label: "Bulk Order",
+      keywords: ["bulk", "wholesale", "large order"],
+      prompt:
+        "Please share product name, quantity, and delivery location.",
+    },
+    {
+      id: "executive",
+      number: "5",
+      label: "Talk to Executive",
+      keywords: ["executive", "agent", "human", "call", "talk", "help"],
+    },
+    {
+      id: "main_menu",
+      number: "6",
+      label: "Main Menu",
+      keywords: ["menu", "main menu", "back", "home"],
+    },
+  ],
+  productOptions: [
+    {
+      id: "price",
+      number: "1",
+      label: "Price Inquiry",
+      keywords: ["price", "cost", "rate"],
+    },
+    {
+      id: "order",
+      number: "2",
+      label: "Place an Order",
+      keywords: ["order", "buy", "purchase"],
+    },
+    {
+      id: "catalog",
+      number: "3",
+      label: "Catalog / Options",
+      keywords: ["catalog", "options", "collection"],
+    },
+    {
+      id: "main_menu",
+      number: "4",
+      label: "Main Menu",
+      keywords: ["menu", "main menu", "back", "home"],
+    },
+  ],
+  detectMainIntent: buildDetectMainIntent({
+    serviceKeywords: ["availability", "visit", "return", "exchange", "bulk", "wholesale"],
+    productKeywords: ["price", "order", "buy", "catalog", "product"],
+  }),
+};
+
+const AUTOMATION_PROFILES = {
+  astrology: ASTROLOGY_PROFILE,
+  clinic: CLINIC_PROFILE,
+  restaurant: RESTAURANT_PROFILE,
+  salon: SALON_PROFILE,
+  shop: SHOP_PROFILE,
+};
+
+const getAutomationProfile = (profession) =>
+  AUTOMATION_PROFILES[profession] || AUTOMATION_PROFILES[DEFAULT_PROFESSION];
 
 const textHasAny = (input, keywords) => keywords.some((word) => input.includes(word));
 
@@ -580,78 +1218,6 @@ const matchOption = (input, options) => {
     if (numericMatch) return numericMatch;
   }
   return options.find((option) => option.keywords?.some((keyword) => input.includes(keyword)));
-};
-
-const detectMainIntent = (input) => {
-  const execKeywords = ["executive", "agent", "human", "call", "talk", "support", "baat"];
-  const serviceKeywords = [
-    "service",
-    "seva",
-    "kundli",
-    "kundali",
-    "vastu",
-    "pooja",
-    "puja",
-    "paath",
-    "path",
-    "gemstone recommendation",
-    "recommendation",
-    "consult",
-    "consultation",
-    "shaadi",
-    "marriage",
-    "vivah",
-    "muhurat",
-    "kaal sarp",
-    "sarpdosh",
-    "astro",
-    "astrology",
-  ];
-  const productKeywords = [
-    "product",
-    "stone",
-    "gemstone",
-    "ring",
-    "pendant",
-    "mala",
-    "ratna",
-    "buy",
-    "order",
-    "price",
-    "cost",
-    "pearl",
-    "diamond",
-    "ruby",
-    "emerald",
-    "sapphire",
-    "neelam",
-    "panna",
-    "manik",
-    "moti",
-    "heera",
-    "pukhraj",
-    "gomed",
-    "lehsunia",
-    "moonga",
-  ];
-
-  if (textHasAny(input, execKeywords)) return "EXECUTIVE";
-
-  const wantsService = textHasAny(input, serviceKeywords);
-  const wantsProduct = textHasAny(input, productKeywords);
-
-  if (wantsService && !wantsProduct) return "SERVICES";
-  if (wantsProduct && !wantsService) return "PRODUCTS";
-
-  if (wantsService && wantsProduct) {
-    if (textHasAny(input, ["buy", "order", "price", "cost", "ring", "pendant"])) {
-      return "PRODUCTS";
-    }
-    if (textHasAny(input, ["consult", "recommend", "suggest", "upay", "solution"])) {
-      return "SERVICES";
-    }
-  }
-  return null;
 };
 
 const isMenuCommand = (input, rawText) => {
@@ -676,9 +1242,257 @@ const buildRequirementSummary = ({ user, phone }) => {
   if (user.data.address) lines.push(`Address: ${user.data.address}`);
   if (user.data.altContact) lines.push(`Alt Contact: ${user.data.altContact}`);
   if (user.data.executiveMessage) lines.push(`Message: ${user.data.executiveMessage}`);
+  if (user.data.appointmentType) lines.push(`Appointment Type: ${user.data.appointmentType}`);
+  if (user.data.appointmentAt) lines.push(`Appointment At: ${user.data.appointmentAt}`);
   if (user.data.lastUserMessage) lines.push(`Last User Message: ${user.data.lastUserMessage}`);
 
   return lines.join("\n");
+};
+
+const DATE_PATTERNS = [
+  "d MMM",
+  "d MMMM",
+  "d MMM yyyy",
+  "d MMMM yyyy",
+  "d/M/yyyy",
+  "d-M-yyyy",
+  "d/M",
+  "d-M",
+  "yyyy-MM-dd",
+];
+
+const DATE_TIME_PATTERNS = [
+  "d MMM h a",
+  "d MMMM h a",
+  "d MMM yyyy h a",
+  "d MMMM yyyy h a",
+  "d MMM h:mm a",
+  "d MMMM h:mm a",
+  "d/M/yyyy H:mm",
+  "d-M-yyyy H:mm",
+  "d/M H:mm",
+  "d-M H:mm",
+  "yyyy-MM-dd H:mm",
+  "yyyy-MM-dd h a",
+];
+
+const parseWithPatterns = (text, patterns, baseDate) => {
+  for (const pattern of patterns) {
+    const parsed = parse(text, pattern, baseDate);
+    if (isValid(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+};
+
+const parseDateFromText = (text) => {
+  const lower = text.toLowerCase();
+  const today = startOfDay(new Date());
+  if (lower.includes("today")) return today;
+  if (lower.includes("tomorrow")) return addDays(today, 1);
+  if (lower.includes("day after tomorrow")) return addDays(today, 2);
+  const parsed = parseWithPatterns(text, DATE_PATTERNS, new Date());
+  return parsed ? startOfDay(parsed) : null;
+};
+
+const parseTimeFromText = (text) => {
+  const match = text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2] || 0);
+  const meridiem = match[3]?.toLowerCase();
+  if (meridiem === "pm" && hour < 12) hour += 12;
+  if (meridiem === "am" && hour === 12) hour = 0;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return { hour, minute };
+};
+
+const parseDateTimeFromText = (text) => {
+  const parsed = parseWithPatterns(text, DATE_TIME_PATTERNS, new Date());
+  if (parsed && isValid(parsed)) return parsed;
+  const date = parseDateFromText(text);
+  const time = parseTimeFromText(text);
+  if (date && time) {
+    return setMinutes(setHours(date, time.hour), time.minute);
+  }
+  return null;
+};
+
+const withinAppointmentWindow = (date) => {
+  if (!date || !isValid(date)) return false;
+  const now = new Date();
+  const windowEnd = addMonths(startOfDay(now), APPOINTMENT_WINDOW_MONTHS);
+  return !isBefore(date, now) && !isAfter(date, windowEnd);
+};
+
+const buildDateOptions = () => {
+  const base = startOfDay(new Date());
+  return [1, 2, 3].map((offset) => addDays(base, offset));
+};
+
+const formatDateOption = (date) => format(date, "EEE, dd MMM");
+const formatTimeOption = (date) => format(date, "h:mm a");
+
+const buildDaySlots = (date) => {
+  const slots = [];
+  for (let hour = APPOINTMENT_START_HOUR; hour < APPOINTMENT_END_HOUR; hour += 1) {
+    slots.push(setMinutes(setHours(date, hour), 0));
+  }
+  return slots;
+};
+
+const getBookedSlots = async (adminId, dayStart, dayEnd) => {
+  const [rows] = await db.query(
+    `SELECT start_time
+     FROM appointments
+     WHERE admin_id = ? AND status != 'cancelled' AND start_time >= ? AND start_time < ?`,
+    [adminId, dayStart.toISOString(), dayEnd.toISOString()]
+  );
+  return new Set(rows.map((row) => new Date(row.start_time).getTime()));
+};
+
+const getAvailableSlotsForDate = async (adminId, date) => {
+  const dayStart = startOfDay(date);
+  const dayEnd = addDays(dayStart, 1);
+  const booked = await getBookedSlots(adminId, dayStart, dayEnd);
+  return buildDaySlots(dayStart).filter((slot) => !booked.has(slot.getTime()));
+};
+
+const findNearestAvailableSlots = async (adminId, requestedAt) => {
+  const dayStart = startOfDay(requestedAt);
+  const available = await getAvailableSlotsForDate(adminId, dayStart);
+  if (available.length) {
+    return available
+      .sort((a, b) => Math.abs(a - requestedAt) - Math.abs(b - requestedAt))
+      .slice(0, 3);
+  }
+  const slots = [];
+  for (let i = 1; i <= 7 && slots.length < 3; i += 1) {
+    const date = addDays(dayStart, i);
+    if (!withinAppointmentWindow(date)) break;
+    const daySlots = await getAvailableSlotsForDate(adminId, date);
+    slots.push(...daySlots);
+  }
+  return slots.slice(0, 3);
+};
+
+const sendAppointmentDateOptions = async ({ sendMessage, user }) => {
+  const options = buildDateOptions();
+  user.data.appointmentDateOptions = options.map((date) => date.toISOString());
+  const lines = options.map((date, idx) => `${idx + 1}️⃣ ${formatDateOption(date)}`);
+  await sendMessage(`Please choose a date:\n${lines.join("\n")}`);
+};
+
+const sendAppointmentTimeOptions = async ({ sendMessage, user, adminId, date }) => {
+  const available = await getAvailableSlotsForDate(adminId, date);
+  if (!available.length) {
+    await sendMessage(
+      "No slots available on that date. Please choose another date."
+    );
+    await sendAppointmentDateOptions({ sendMessage, user });
+    user.step = "APPOINTMENT_DATE";
+    return false;
+  }
+  user.data.appointmentTimeOptions = available.map((slot) => slot.toISOString());
+  const lines = available.map((slot, idx) => `${idx + 1}️⃣ ${formatTimeOption(slot)}`);
+  await sendMessage(`Available times:\n${lines.join("\n")}\nReply with a time or number.`);
+  return true;
+};
+
+const bookAppointment = async ({
+  adminId,
+  user,
+  from,
+  phone,
+  sendMessage,
+  slot,
+  appointmentType,
+  client,
+  users,
+}) => {
+  if (!withinAppointmentWindow(slot)) {
+    await sendMessage(
+      `We can only book appointments within ${APPOINTMENT_WINDOW_MONTHS} months. Please choose a nearer date.`
+    );
+    await sendAppointmentDateOptions({ sendMessage, user });
+    user.step = "APPOINTMENT_DATE";
+    return;
+  }
+
+  const hour = slot.getHours();
+  const minute = slot.getMinutes();
+  if (minute !== 0 || hour < APPOINTMENT_START_HOUR || hour >= APPOINTMENT_END_HOUR) {
+    await sendMessage(
+      `Available slots are between ${APPOINTMENT_START_HOUR}:00 and ${APPOINTMENT_END_HOUR}:00 with 1-hour gaps.`
+    );
+    await sendAppointmentTimeOptions({ sendMessage, user, adminId, date: slot });
+    user.step = "APPOINTMENT_TIME";
+    return;
+  }
+
+  const startTime = slot.toISOString();
+  const endTime = addMinutes(slot, APPOINTMENT_SLOT_MINUTES).toISOString();
+
+  try {
+    await db.query(
+      `INSERT INTO appointments (user_id, admin_id, profession, appointment_type, start_time, end_time, status)
+       VALUES (?, ?, ?, ?, ?, ?, 'booked')`,
+      [
+        user.clientId,
+        adminId,
+        user.data?.profession || null,
+        appointmentType || "Appointment",
+        startTime,
+        endTime,
+      ]
+    );
+  } catch (err) {
+    if (err?.code === "23505") {
+      const alternatives = await findNearestAvailableSlots(adminId, slot);
+      if (alternatives.length) {
+        const lines = alternatives.map((s, idx) => `${idx + 1}️⃣ ${formatDateOption(s)} ${formatTimeOption(s)}`);
+        await sendMessage(
+          `That slot is already booked. Here are the nearest available times:\n${lines.join("\n")}`
+        );
+        user.data.appointmentTimeOptions = alternatives.map((s) => s.toISOString());
+        user.step = "APPOINTMENT_TIME";
+      } else {
+        await sendMessage("That slot is already booked. Please choose another date.");
+        await sendAppointmentDateOptions({ sendMessage, user });
+        user.step = "APPOINTMENT_DATE";
+      }
+      return;
+    }
+    throw err;
+  }
+
+  user.data.reason = "Appointment";
+  user.data.appointmentType = appointmentType || "Appointment";
+  user.data.appointmentAt = `${formatDateOption(slot)} ${formatTimeOption(slot)}`;
+
+  await sendMessage(
+    `✅ Appointment booked for ${formatDateOption(slot)} at ${formatTimeOption(slot)}.`
+  );
+
+  await maybeFinalizeLead({
+    user,
+    from,
+    phone,
+    assignedAdminId: adminId,
+    client,
+    users,
+    sendMessage,
+  });
+};
+
+const startAppointmentFlow = async ({ user, sendMessage, appointmentType }) => {
+  user.data.appointmentType = appointmentType || "Appointment";
+  user.data.appointmentDate = null;
+  user.data.appointmentDateOptions = [];
+  user.data.appointmentTimeOptions = [];
+  user.step = "APPOINTMENT_DATE";
+  await sendAppointmentDateOptions({ sendMessage, user });
 };
 
 const logMessage = async ({ userId, adminId, text, type }) => {
@@ -771,16 +1585,16 @@ const scheduleIdleSave = ({ user, phone, assignedAdminId }) => {
   }, TWO_MINUTES_MS);
 };
 
-const sendResumePrompt = async ({ user, sendMessage }) => {
+const sendResumePrompt = async ({ user, sendMessage, automation }) => {
   switch (user.step) {
     case "SERVICES_MENU":
-      await sendMessage(SERVICES_MENU_TEXT);
+      await sendMessage(automation.servicesMenuText);
       return;
     case "PRODUCTS_MENU":
-      await sendMessage(PRODUCTS_MENU_TEXT);
+      await sendMessage(automation.productsMenuText);
       return;
     case "SERVICE_DETAILS": {
-      const serviceOption = SERVICE_OPTIONS.find(
+      const serviceOption = automation.serviceOptions.find(
         (option) => option.label === user.data.serviceType
       );
       await sendMessage(
@@ -790,7 +1604,7 @@ const sendResumePrompt = async ({ user, sendMessage }) => {
       return;
     }
     case "PRODUCT_REQUIREMENTS":
-      await sendMessage(PRODUCT_DETAILS_PROMPT);
+      await sendMessage(automation.productDetailsPrompt);
       return;
     case "PRODUCT_ADDRESS":
       await sendMessage(
@@ -807,6 +1621,19 @@ const sendResumePrompt = async ({ user, sendMessage }) => {
         "Sure 👍\nPlease tell us briefly *how we can help you today*."
       );
       return;
+    case "APPOINTMENT_DATE":
+      await sendAppointmentDateOptions({ sendMessage, user });
+      return;
+    case "APPOINTMENT_TIME": {
+      const rawDate = user.data.appointmentDate;
+      const date = rawDate ? new Date(rawDate) : null;
+      if (date && isValid(date)) {
+        await sendAppointmentTimeOptions({ sendMessage, user, adminId: user.assignedAdminId, date });
+      } else {
+        await sendAppointmentDateOptions({ sendMessage, user });
+      }
+      return;
+    }
     case "ASK_NAME":
       await sendMessage("May I know your *name*?");
       return;
@@ -815,11 +1642,13 @@ const sendResumePrompt = async ({ user, sendMessage }) => {
       return;
     case "MENU":
       await sendMessage(
-        user.isReturningUser && user.name ? returningMenuText(user.name) : MAIN_MENU_TEXT
+        user.isReturningUser && user.name
+          ? automation.returningMenuText(user.name)
+          : automation.mainMenuText
       );
       return;
     default:
-      await sendMessage(MAIN_MENU_TEXT);
+      await sendMessage(automation.mainMenuText);
   }
 };
 
@@ -996,6 +1825,9 @@ function attachAutomationHandlers(session) {
     });
 
     const aiSettings = await getAdminAISettings(assignedAdminId);
+    const adminProfile = await getAdminAutomationProfile(assignedAdminId);
+    const automation = getAutomationProfile(adminProfile?.profession);
+    user.data.profession = adminProfile?.profession || DEFAULT_PROFESSION;
     if (aiSettings?.ai_enabled) {
       const aiReply = await fetchAIReply({
         aiPrompt: aiSettings.ai_prompt,
@@ -1048,10 +1880,25 @@ function attachAutomationHandlers(session) {
     user.partialSavedAt = null;
     scheduleIdleSave({ user, phone, assignedAdminId });
 
+    if (
+      automation.supportsAppointments &&
+      ["START", "MENU"].includes(user.step) &&
+      textHasAny(lower, automation.appointmentKeywords || [])
+    ) {
+      await startAppointmentFlow({
+        user,
+        sendMessage,
+        appointmentType: "Appointment",
+      });
+      return;
+    }
+
     if (isMenuCommand(lower, text)) {
       await delay(1000);
       await sendMessage(
-        user.isReturningUser && user.name ? returningMenuText(user.name) : MAIN_MENU_TEXT
+        user.isReturningUser && user.name
+          ? automation.returningMenuText(user.name)
+          : automation.mainMenuText
       );
       user.step = "MENU";
       return;
@@ -1075,7 +1922,7 @@ function attachAutomationHandlers(session) {
         user.awaitingResumeDecision = false;
         user.step = "START";
         await delay(1000);
-        await sendMessage(MAIN_MENU_TEXT);
+        await sendMessage(automation.mainMenuText);
         user.step = "MENU";
         return;
       }
@@ -1084,7 +1931,123 @@ function attachAutomationHandlers(session) {
       user.resumeStep = null;
       user.awaitingResumeDecision = false;
       await delay(1000);
-      await sendResumePrompt({ user, sendMessage });
+      await sendResumePrompt({ user, sendMessage, automation });
+      return;
+    }
+
+    /* ===============================
+       APPOINTMENT DATE
+       =============================== */
+    if (user.step === "APPOINTMENT_DATE") {
+      const optionIndex = extractNumber(lower);
+      const optionDates = Array.isArray(user.data.appointmentDateOptions)
+        ? user.data.appointmentDateOptions
+        : [];
+      let chosenDate = null;
+      if (optionIndex && optionDates.length) {
+        const idx = Number(optionIndex) - 1;
+        if (optionDates[idx]) {
+          chosenDate = startOfDay(new Date(optionDates[idx]));
+        }
+      }
+
+      const directDateTime = parseDateTimeFromText(text);
+      if (directDateTime && isValid(directDateTime)) {
+        await bookAppointment({
+          adminId: assignedAdminId,
+          user,
+          from,
+          phone,
+          sendMessage,
+          slot: directDateTime,
+          appointmentType: user.data.appointmentType,
+          client,
+          users,
+        });
+        return;
+      }
+
+      const parsedDate = chosenDate || parseDateFromText(text);
+      if (!parsedDate || !isValid(parsedDate)) {
+        await sendMessage("Please share a date or choose an option below.");
+        await sendAppointmentDateOptions({ sendMessage, user });
+        return;
+      }
+      if (!withinAppointmentWindow(parsedDate)) {
+        await sendMessage(
+          `We can only book appointments within ${APPOINTMENT_WINDOW_MONTHS} months. Please choose a nearer date.`
+        );
+        await sendAppointmentDateOptions({ sendMessage, user });
+        return;
+      }
+
+      user.data.appointmentDate = parsedDate.toISOString();
+      user.step = "APPOINTMENT_TIME";
+      await sendAppointmentTimeOptions({
+        sendMessage,
+        user,
+        adminId: assignedAdminId,
+        date: parsedDate,
+      });
+      return;
+    }
+
+    /* ===============================
+       APPOINTMENT TIME
+       =============================== */
+    if (user.step === "APPOINTMENT_TIME") {
+      const optionIndex = extractNumber(lower);
+      const optionTimes = Array.isArray(user.data.appointmentTimeOptions)
+        ? user.data.appointmentTimeOptions
+        : [];
+      let slot = null;
+      if (optionIndex && optionTimes.length) {
+        const idx = Number(optionIndex) - 1;
+        if (optionTimes[idx]) {
+          slot = new Date(optionTimes[idx]);
+        }
+      }
+
+      if (!slot) {
+        const directDateTime = parseDateTimeFromText(text);
+        if (directDateTime && isValid(directDateTime)) {
+          slot = directDateTime;
+        } else {
+          const time = parseTimeFromText(text);
+          const baseDate = user.data.appointmentDate
+            ? new Date(user.data.appointmentDate)
+            : null;
+          if (time && baseDate && isValid(baseDate)) {
+            slot = setMinutes(setHours(baseDate, time.hour), 0);
+          }
+        }
+      }
+
+      if (!slot || !isValid(slot)) {
+        await sendMessage("Please select a time from the list or send a time.");
+        const baseDate = user.data.appointmentDate
+          ? new Date(user.data.appointmentDate)
+          : new Date();
+        await sendAppointmentTimeOptions({
+          sendMessage,
+          user,
+          adminId: assignedAdminId,
+          date: baseDate,
+        });
+        return;
+      }
+
+      await bookAppointment({
+        adminId: assignedAdminId,
+        user,
+        from,
+        phone,
+        sendMessage,
+        slot,
+        appointmentType: user.data.appointmentType,
+        client,
+        users,
+      });
       return;
     }
 
@@ -1099,13 +2062,13 @@ function attachAutomationHandlers(session) {
           : startNumber === "2"
           ? "PRODUCTS"
           : "EXECUTIVE"
-        : detectMainIntent(lower);
+        : automation.detectMainIntent(lower);
       const matchedService = ["1", "2", "3"].includes(startNumber)
         ? null
-        : matchOption(lower, SERVICE_OPTIONS);
+        : matchOption(lower, automation.serviceOptions);
       const matchedProduct = ["1", "2", "3"].includes(startNumber)
         ? null
-        : matchOption(lower, PRODUCT_OPTIONS);
+        : matchOption(lower, automation.productOptions);
       const resolvedIntent =
         mainIntent || (matchedService ? "SERVICES" : matchedProduct ? "PRODUCTS" : null);
 
@@ -1117,13 +2080,22 @@ function attachAutomationHandlers(session) {
           user.step = "EXECUTIVE_MESSAGE";
           return;
         }
+        if (matchedService?.bookable) {
+          user.data.reason = "Appointment";
+          await startAppointmentFlow({
+            user,
+            sendMessage,
+            appointmentType: matchedService.label,
+          });
+          return;
+        }
         if (matchedService && matchedService.id !== "main_menu" && matchedService.prompt) {
           user.data.serviceType = matchedService.label;
           await sendMessage(matchedService.prompt);
           user.step = "SERVICE_DETAILS";
           return;
         }
-        await sendMessage(SERVICES_MENU_TEXT);
+        await sendMessage(automation.servicesMenuText);
         user.step = "SERVICES_MENU";
         return;
       }
@@ -1131,11 +2103,11 @@ function attachAutomationHandlers(session) {
         user.data.reason = "Products";
         if (matchedProduct && matchedProduct.id !== "main_menu") {
           user.data.productType = matchedProduct.label;
-          await sendMessage(PRODUCT_DETAILS_PROMPT);
+          await sendMessage(automation.productDetailsPrompt);
           user.step = "PRODUCT_REQUIREMENTS";
           return;
         }
-        await sendMessage(PRODUCTS_MENU_TEXT);
+        await sendMessage(automation.productsMenuText);
         user.step = "PRODUCTS_MENU";
         return;
       }
@@ -1146,7 +2118,7 @@ function attachAutomationHandlers(session) {
         return;
       }
 
-      await sendMessage(MAIN_MENU_TEXT);
+      await sendMessage(automation.mainMenuText);
       user.step = "MENU";
       return;
     }
@@ -1156,7 +2128,7 @@ function attachAutomationHandlers(session) {
        =============================== */
     if (user.step === "MENU" && user.isReturningUser && (lower === "hi" || lower === "hello")) {
       await delay(1000);
-      await sendMessage(returningMenuText(user.name));
+      await sendMessage(automation.returningMenuText(user.name));
       return;
     }
 
@@ -1166,9 +2138,9 @@ function attachAutomationHandlers(session) {
     if (user.step === "MENU") {
       const number = extractNumber(lower);
       const isNumericMenuChoice = ["1", "2", "3"].includes(number);
-      const mainIntent = detectMainIntent(lower);
-      const matchedService = isNumericMenuChoice ? null : matchOption(lower, SERVICE_OPTIONS);
-      const matchedProduct = isNumericMenuChoice ? null : matchOption(lower, PRODUCT_OPTIONS);
+      const mainIntent = automation.detectMainIntent(lower);
+      const matchedService = isNumericMenuChoice ? null : matchOption(lower, automation.serviceOptions);
+      const matchedProduct = isNumericMenuChoice ? null : matchOption(lower, automation.productOptions);
 
       let mainChoice = null;
       if (["1", "2", "3"].includes(number)) {
@@ -1199,6 +2171,15 @@ function attachAutomationHandlers(session) {
         user.step = "EXECUTIVE_MESSAGE";
         return;
       }
+      if (mainChoice === "SERVICES" && matchedService?.bookable) {
+        user.data.reason = "Appointment";
+        await startAppointmentFlow({
+          user,
+          sendMessage,
+          appointmentType: matchedService.label,
+        });
+        return;
+      }
       if (mainChoice === "SERVICES" && matchedService && matchedService.id !== "main_menu") {
         user.data.serviceType = matchedService.label;
         await sendMessage(
@@ -1210,17 +2191,17 @@ function attachAutomationHandlers(session) {
       }
       if (mainChoice === "PRODUCTS" && matchedProduct && matchedProduct.id !== "main_menu") {
         user.data.productType = matchedProduct.label;
-        await sendMessage(PRODUCT_DETAILS_PROMPT);
+        await sendMessage(automation.productDetailsPrompt);
         user.step = "PRODUCT_REQUIREMENTS";
         return;
       }
       if (mainChoice === "SERVICES") {
-        await sendMessage(SERVICES_MENU_TEXT);
+        await sendMessage(automation.servicesMenuText);
         user.step = "SERVICES_MENU";
         return;
       }
       if (mainChoice === "PRODUCTS") {
-        await sendMessage(PRODUCTS_MENU_TEXT);
+        await sendMessage(automation.productsMenuText);
         user.step = "PRODUCTS_MENU";
         return;
       }
@@ -1271,7 +2252,7 @@ function attachAutomationHandlers(session) {
        STEP 4B: SERVICES MENU
        =============================== */
     if (user.step === "SERVICES_MENU") {
-      const selectedService = matchOption(lower, SERVICE_OPTIONS);
+      const selectedService = matchOption(lower, automation.serviceOptions);
       if (!selectedService) {
         await sendMessage("Please choose a service from the menu 🙂");
         return;
@@ -1279,7 +2260,7 @@ function attachAutomationHandlers(session) {
 
       if (selectedService.id === "main_menu") {
         await delay(1000);
-        await sendMessage(MAIN_MENU_TEXT);
+        await sendMessage(automation.mainMenuText);
         user.step = "MENU";
         return;
       }
@@ -1289,6 +2270,17 @@ function attachAutomationHandlers(session) {
         await delay(1000);
         await sendMessage("Sure 👍\nPlease tell us briefly *how we can help you today*.");
         user.step = "EXECUTIVE_MESSAGE";
+        return;
+      }
+
+      if (selectedService.bookable) {
+        user.data.reason = "Appointment";
+        await delay(500);
+        await startAppointmentFlow({
+          user,
+          sendMessage,
+          appointmentType: selectedService.label,
+        });
         return;
       }
 
@@ -1305,7 +2297,7 @@ function attachAutomationHandlers(session) {
        STEP 4C: PRODUCTS MENU
        =============================== */
     if (user.step === "PRODUCTS_MENU") {
-      const selectedProduct = matchOption(lower, PRODUCT_OPTIONS);
+      const selectedProduct = matchOption(lower, automation.productOptions);
       if (!selectedProduct) {
         await sendMessage("Please choose a product from the menu 🙂");
         return;
@@ -1313,7 +2305,7 @@ function attachAutomationHandlers(session) {
 
       if (selectedProduct.id === "main_menu") {
         await delay(1000);
-        await sendMessage(MAIN_MENU_TEXT);
+        await sendMessage(automation.mainMenuText);
         user.step = "MENU";
         return;
       }
@@ -1322,7 +2314,7 @@ function attachAutomationHandlers(session) {
       user.data.productType = selectedProduct.label;
 
       await delay(1000);
-      await sendMessage(PRODUCT_DETAILS_PROMPT);
+      await sendMessage(automation.productDetailsPrompt);
       user.step = "PRODUCT_REQUIREMENTS";
       return;
     }

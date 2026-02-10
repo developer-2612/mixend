@@ -17,15 +17,26 @@ export async function PATCH(req, context) {
     const body = await req.json();
     const admin_tier = body?.admin_tier;
     const status = body?.status;
+    const profession = body?.profession;
 
     const allowedTiers = new Set(['super_admin', 'client_admin']);
     const allowedStatus = new Set(['active', 'inactive']);
+    const allowedProfessions = new Set([
+      'astrology',
+      'clinic',
+      'restaurant',
+      'salon',
+      'shop',
+    ]);
 
     if (admin_tier && !allowedTiers.has(admin_tier)) {
       return Response.json({ success: false, error: 'Invalid admin role' }, { status: 400 });
     }
     if (status && !allowedStatus.has(status)) {
       return Response.json({ success: false, error: 'Invalid status' }, { status: 400 });
+    }
+    if (profession && !allowedProfessions.has(profession)) {
+      return Response.json({ success: false, error: 'Invalid profession' }, { status: 400 });
     }
 
     if (adminId === user.id) {
@@ -37,7 +48,7 @@ export async function PATCH(req, context) {
       }
     }
 
-    const updated = await updateAdminAccess(adminId, { admin_tier, status });
+    const updated = await updateAdminAccess(adminId, { admin_tier, status, profession });
     if (!updated) {
       return Response.json({ success: false, error: 'Admin not found' }, { status: 404 });
     }

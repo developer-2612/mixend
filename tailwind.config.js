@@ -1,4 +1,13 @@
 /** @type {import('tailwindcss').Config} */
+const withOpacityValue = (variable) => {
+  return ({ opacityValue }) => {
+    if (opacityValue === undefined) {
+      return `rgb(var(${variable}))`;
+    }
+    return `rgb(var(${variable}) / ${opacityValue})`;
+  };
+};
+
 const config = {
   content: [
     './app/**/*.{js,jsx,ts,tsx,mdx}',
@@ -7,12 +16,12 @@ const config = {
   theme: {
     extend: {
       colors: {
-        'aa-dark-blue': '#0A1F44',
-        'aa-orange': '#FF6B00',
-        'aa-light-bg': '#F4F7FC',
-        'aa-white': '#FFFFFF',
-        'aa-text-dark': '#0F172A',
-        'aa-gray': '#64748B',
+        'aa-dark-blue': withOpacityValue('--aa-dark-blue'),
+        'aa-orange': withOpacityValue('--aa-orange'),
+        'aa-light-bg': withOpacityValue('--aa-light-bg'),
+        'aa-white': withOpacityValue('--aa-white'),
+        'aa-text-dark': withOpacityValue('--aa-text-dark'),
+        'aa-gray': withOpacityValue('--aa-gray'),
       },
     },
   },

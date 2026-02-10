@@ -145,6 +145,7 @@ export default function AdminsPage() {
                 <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase">Admin</th>
                 <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase">Contact</th>
                 <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase">Role</th>
+                <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase">Profession</th>
                 <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase">Status</th>
                 <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase">Actions</th>
               </tr>
@@ -152,7 +153,7 @@ export default function AdminsPage() {
             <tbody>
               {filteredAdmins.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="text-center py-6 text-gray-500">
+                  <td colSpan="6" className="text-center py-6 text-gray-500">
                     No admins found.
                   </td>
                 </tr>
@@ -179,6 +180,37 @@ export default function AdminsPage() {
                           <option value="super_admin">Super Admin</option>
                           <option value="client_admin">Admin</option>
                         </select>
+                      </td>
+                      <td className="py-4 px-3">
+                        <div className="flex flex-col gap-2">
+                          <select
+                            value={admin.profession || 'astrology'}
+                            onChange={(e) => updateAdmin(admin.id, { profession: e.target.value })}
+                            disabled={updatingId === admin.id}
+                            className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-aa-orange disabled:opacity-60"
+                          >
+                            <option value="astrology">Astrology</option>
+                            <option value="clinic">Clinic</option>
+                            <option value="restaurant">Restaurant</option>
+                            <option value="salon">Salon</option>
+                            <option value="shop">Retail Shop</option>
+                          </select>
+                          {admin.profession_request && (
+                            <div className="flex items-center gap-2 text-xs text-aa-gray">
+                              <span>Requested: {admin.profession_request}</span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateAdmin(admin.id, { profession: admin.profession_request })
+                                }
+                                disabled={updatingId === admin.id}
+                                className="px-2 py-0.5 rounded-full border border-aa-orange text-aa-orange hover:bg-aa-orange hover:text-white transition disabled:opacity-60"
+                              >
+                                Apply
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="py-4 px-3">
                         <select

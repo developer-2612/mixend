@@ -14,6 +14,7 @@ export default function SignupPage() {
     name: '',
     email: '',
     phone: '',
+    profession: 'astrology',
     password: '',
     confirm: '',
   });
@@ -53,6 +54,7 @@ export default function SignupPage() {
           name: form.name,
           email: form.email,
           phone: form.phone,
+          profession: form.profession,
           password: form.password,
         }),
       });
@@ -133,6 +135,25 @@ export default function SignupPage() {
               required
               icon={<FontAwesomeIcon icon={faPhone} style={{ fontSize: 18 }} />}
             />
+
+            <div className="w-full">
+              <label className="block text-sm font-semibold text-aa-text-dark mb-2">
+                Profession <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <select
+                  value={form.profession}
+                  onChange={update('profession')}
+                  className="w-full px-4 py-3 border-2 rounded-lg outline-none focus:border-aa-orange border-gray-200"
+                >
+                  <option value="astrology">Astrology</option>
+                  <option value="clinic">Clinic</option>
+                  <option value="restaurant">Restaurant</option>
+                  <option value="salon">Salon</option>
+                  <option value="shop">Retail Shop</option>
+                </select>
+              </div>
+            </div>
 
             <Input
               label="Password"

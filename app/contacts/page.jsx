@@ -15,6 +15,7 @@ export default function ContactsPage() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [messages, setMessages] = useState([]);
+  const [latestRequirement, setLatestRequirement] = useState(null);
   const [modalLoading, setModalLoading] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatUser, setChatUser] = useState(null);
@@ -74,11 +75,17 @@ export default function ContactsPage() {
     setModalOpen(true);
     setChatOpen(false);
     setMessages([]);
+    setLatestRequirement(null);
     setModalLoading(true);
     try {
-      const response = await fetch(`/api/users/${user.id}/messages`);
-      const data = await response.json();
-      setMessages(data.data || []);
+      const [messagesResponse, requirementResponse] = await Promise.all([
+        fetch(`/api/users/${user.id}/messages`),
+        fetch(`/api/users/${user.id}/requirements`),
+      ]);
+      const messagesData = await messagesResponse.json();
+      const requirementData = await requirementResponse.json();
+      setMessages(messagesData.data || []);
+      setLatestRequirement(requirementData.data || null);
     } catch (error) {
       console.error('Failed to fetch user messages:', error);
     } finally {
@@ -339,30 +346,30 @@ export default function ContactsPage() {
               <h3 className="text-lg font-semibold text-aa-dark-blue mb-3">Message Details</h3>
               {modalLoading ? (
                 <p className="text-aa-gray">Loading messages...</p>
-              ) : messages.length === 0 ? (
-                <p className="text-aa-gray">No messages found for this contact.</p>
+              ) : !latestRequirement ? (
+                <p className="text-aa-gray">No lead details found for this contact.</p>
               ) : (
                 <div className="space-y-3">
-                  {(() => {
-                    const latest = messages[0];
-                    return (
-                      <div className="p-4 border border-gray-200 rounded-lg">
-                        <p className="text-xs text-aa-gray uppercase mb-1">Reason / Latest Message</p>
-                        <p className="font-semibold text-aa-text-dark mb-2">{latest.message_text}</p>
-                        <div className="flex flex-wrap gap-2 text-sm">
-                          <span className="px-2 py-1 rounded bg-gray-100 text-aa-gray">
-                            Status: {latest.status || '—'}
-                          </span>
-                          <span className="px-2 py-1 rounded bg-gray-100 text-aa-gray">
-                            Type: {latest.message_type || '—'}
-                          </span>
-                          <span className="px-2 py-1 rounded bg-gray-100 text-aa-gray">
-                            Date: {latest.created_at ? new Date(latest.created_at).toLocaleString() : '—'}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })()}
+                  <div className="p-4 border border-gray-200 rounded-lg">
+                    <p className="text-xs text-aa-gray uppercase mb-1">Contact Reason</p>
+                    <p className="font-semibold text-aa-text-dark mb-2">
+                      {latestRequirement.requirement_text || '—'}
+                    </p>
+                    <div className="flex flex-wrap gap-2 text-sm">
+                      <span className="px-2 py-1 rounded bg-gray-100 text-aa-gray">
+                        Category: {latestRequirement.category || '—'}
+                      </span>
+                      <span className="px-2 py-1 rounded bg-gray-100 text-aa-gray">
+                        Status: {latestRequirement.status || '—'}
+                      </span>
+                      <span className="px-2 py-1 rounded bg-gray-100 text-aa-gray">
+                        Date:{' '}
+                        {latestRequirement.created_at
+                          ? new Date(latestRequirement.created_at).toLocaleString()
+                          : '—'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

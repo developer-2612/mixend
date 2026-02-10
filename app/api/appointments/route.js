@@ -1,4 +1,4 @@
-import { getAllRequirements } from '../../../lib/db-helpers';
+import { getAppointments } from '../../../lib/db-helpers';
 import { parsePagination, parseSearch, parseStatus } from '../../../lib/api-utils';
 import { requireAuth } from '../../../lib/auth-server';
 
@@ -9,12 +9,12 @@ export async function GET(req) {
     const { limit, offset } = parsePagination(searchParams);
     const search = parseSearch(searchParams);
     const status = parseStatus(searchParams);
-    const requirements = await getAllRequirements(
+    const appointments = await getAppointments(
       authUser.id,
       { search, status, limit: limit + 1, offset }
     );
-    const hasMore = requirements.length > limit;
-    const data = hasMore ? requirements.slice(0, limit) : requirements;
+    const hasMore = appointments.length > limit;
+    const data = hasMore ? appointments.slice(0, limit) : appointments;
     const response = Response.json({
       success: true,
       data,

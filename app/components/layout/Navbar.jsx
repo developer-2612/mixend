@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faMagnifyingGlass,
@@ -12,16 +13,71 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../auth/AuthProvider.jsx';
 
+const WHATSAPP_API_BASE =
+  process.env.NEXT_PUBLIC_WHATSAPP_API_BASE || 'http://localhost:3001';
+const WHATSAPP_SOCKET_URL =
+  process.env.NEXT_PUBLIC_WHATSAPP_SOCKET_URL || WHATSAPP_API_BASE;
+
 export default function Navbar({ onMenuClick }) {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const [whatsappConnected, setWhatsappConnected] = useState(true);
+  const [whatsappConnected, setWhatsappConnected] = useState(false);
   const [notifications, setNotifications] = useState(3);
   const [searchQuery, setSearchQuery] = useState('');
   const handleLogout = async () => {
     await logout();
     router.push('/login');
   };
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!user?.id) {
+      setWhatsappConnected(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const deriveConnected = (payload) => {
+      const status = payload?.status || 'idle';
+      const isCurrentAdmin =
+        payload?.activeAdminId && user?.id && payload.activeAdminId === user.id;
+      return status === 'connected' && isCurrentAdmin;
+    };
+
+    const fetchStatus = async () => {
+      try {
+        const response = await fetch(
+          `${WHATSAPP_API_BASE}/whatsapp/status?adminId=${user.id}`
+        );
+        if (!response.ok) throw new Error('status');
+        const payload = await response.json();
+        if (!isMounted) return;
+        setWhatsappConnected(deriveConnected(payload));
+      } catch (error) {
+        if (isMounted) setWhatsappConnected(false);
+      }
+    };
+
+    fetchStatus();
+
+    const socket = io(WHATSAPP_SOCKET_URL, {
+      query: { adminId: user.id },
+    });
+
+    socket.on('whatsapp:status', (payload) => {
+      setWhatsappConnected(deriveConnected(payload));
+    });
+
+    socket.on('connect_error', () => {
+      setWhatsappConnected(false);
+    });
+
+    return () => {
+      isMounted = false;
+      socket.disconnect();
+    };
+  }, [user?.id]);
 
   return (
     <nav className="bg-white h-16 border-b border-gray-200 flex items-center justify-between px-4 sm:px-6" data-testid="navbar">

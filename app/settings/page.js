@@ -14,12 +14,36 @@ import {
   faMobileScreen,
   faGlobe,
   faShieldHalved,
+  faCheck,
 } from '@fortawesome/free-solid-svg-icons';
+import {
+  ACCENT_COLORS,
+  DEFAULT_ACCENT_COLOR,
+  DEFAULT_THEME,
+  THEMES,
+  applyAccentColor,
+  applyTheme,
+  getStoredAccentColor,
+  getStoredTheme,
+  storeAccentColor,
+  storeTheme,
+} from '../../lib/appearance.js';
 
 const WHATSAPP_API_BASE =
   process.env.NEXT_PUBLIC_WHATSAPP_API_BASE || 'http://localhost:3001';
 const WHATSAPP_SOCKET_URL =
   process.env.NEXT_PUBLIC_WHATSAPP_SOCKET_URL || WHATSAPP_API_BASE;
+
+const PROFESSION_OPTIONS = [
+  { value: 'astrology', label: 'Astrology' },
+  { value: 'clinic', label: 'Clinic' },
+  { value: 'restaurant', label: 'Restaurant' },
+  { value: 'salon', label: 'Salon' },
+  { value: 'shop', label: 'Retail Shop' },
+];
+
+const getProfessionLabel = (value) =>
+  PROFESSION_OPTIONS.find((option) => option.value === value)?.label || 'Astrology';
 
 export default function SettingsPage() {
   const { user, loading: authLoading, refresh } = useAuth();
@@ -28,16 +52,23 @@ export default function SettingsPage() {
     name: '',
     email: '',
     phone: '',
+    profession: 'astrology',
+    profession_request: '',
+    profession_requested_at: null,
   });
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState(null);
   const [saveStatus, setSaveStatus] = useState('');
+  const [accentColor, setAccentColor] = useState(DEFAULT_ACCENT_COLOR);
+  const [theme, setTheme] = useState(DEFAULT_THEME);
   const [whatsappConnected, setWhatsappConnected] = useState(false);
   const [whatsappStatus, setWhatsappStatus] = useState('idle');
   const [whatsappQr, setWhatsappQr] = useState('');
   const [whatsappQrVersion, setWhatsappQrVersion] = useState(0);
   const whatsappQrJobRef = useRef(0);
   const [whatsappActionStatus, setWhatsappActionStatus] = useState('');
+  const [professionRequest, setProfessionRequest] = useState('astrology');
+  const [professionRequestStatus, setProfessionRequestStatus] = useState('');
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
   const [passwordForm, setPasswordForm] = useState({
@@ -50,7 +81,7 @@ export default function SettingsPage() {
   const [whatsappConfig, setWhatsappConfig] = useState({
     phone: '',
     businessName: '',
-    category: 'Technology',
+    category: '',
   });
 
   const updatePasswordField = (field) => (event) =>
@@ -61,6 +92,30 @@ export default function SettingsPage() {
     setWhatsappQrVersion((prev) => prev + 1);
     whatsappQrJobRef.current += 1;
   }, []);
+
+  useEffect(() => {
+    const storedAccent = getStoredAccentColor();
+    const initialAccent = storedAccent || DEFAULT_ACCENT_COLOR;
+    setAccentColor(initialAccent);
+    applyAccentColor(initialAccent);
+    const storedTheme = getStoredTheme();
+    const initialTheme = THEMES.includes(storedTheme) ? storedTheme : DEFAULT_THEME;
+    setTheme(initialTheme);
+    applyTheme(initialTheme);
+  }, []);
+
+  const handleAccentChange = (color) => {
+    setAccentColor(color);
+    applyAccentColor(color);
+    storeAccentColor(color);
+  };
+
+  const handleThemeChange = (nextTheme) => {
+    const resolved = nextTheme === 'dark' ? 'dark' : 'light';
+    setTheme(resolved);
+    applyTheme(resolved);
+    storeTheme(resolved);
+  };
 
   const renderQrFromRaw = useCallback(
     async (qrText) => {
@@ -84,7 +139,11 @@ export default function SettingsPage() {
         name: user.name || prev.name,
         email: user.email || prev.email,
         phone: user.phone || prev.phone,
+        profession: user.profession || prev.profession,
+        profession_request: user.profession_request || prev.profession_request,
+        profession_requested_at: user.profession_requested_at || prev.profession_requested_at,
       }));
+      setProfessionRequest(user.profession_request || user.profession || 'astrology');
     }
   }, [user]);
 
@@ -106,7 +165,13 @@ export default function SettingsPage() {
           name: data.data?.name || '',
           email: data.data?.email || '',
           phone: data.data?.phone || '',
+          profession: data.data?.profession || 'astrology',
+          profession_request: data.data?.profession_request || '',
+          profession_requested_at: data.data?.profession_requested_at || null,
         });
+        setProfessionRequest(
+          data.data?.profession_request || data.data?.profession || 'astrology'
+        );
         if (data.data?.whatsapp_number || data.data?.whatsapp_name) {
           setWhatsappConfig((prev) => ({
             ...prev,
@@ -129,6 +194,13 @@ export default function SettingsPage() {
     }
     loadProfile();
   }, [authLoading, user]);
+
+  useEffect(() => {
+    setWhatsappConfig((prev) => ({
+      ...prev,
+      category: getProfessionLabel(profile.profession),
+    }));
+  }, [profile.profession]);
 
   const fetchWhatsAppStatus = useCallback(async (isMountedRef = { current: true }) => {
     try {
@@ -414,7 +486,95 @@ export default function SettingsPage() {
                     placeholder="Enter phone number"
                     disabled
                   />
+                  {user?.admin_tier === 'super_admin' ? (
+                    <div className="w-full">
+                      <label className="block text-sm font-semibold text-aa-text-dark mb-2">
+                        Profession <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={profile.profession}
+                          onChange={(event) =>
+                            setProfile((prev) => ({ ...prev, profession: event.target.value }))
+                          }
+                          className="w-full px-4 py-3 border-2 rounded-lg outline-none focus:border-aa-orange border-gray-200"
+                        >
+                          {PROFESSION_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full">
+                      <label className="block text-sm font-semibold text-aa-text-dark mb-2">
+                        Profession
+                      </label>
+                      <div className="px-4 py-3 border-2 rounded-lg bg-gray-50 text-aa-text-dark">
+                        {getProfessionLabel(profile.profession)}
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {user?.admin_tier !== 'super_admin' && (
+                  <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <p className="text-sm font-semibold text-aa-text-dark mb-3">
+                      Request Profession Change
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <select
+                        value={professionRequest}
+                        onChange={(event) => setProfessionRequest(event.target.value)}
+                        className="px-4 py-2 border-2 rounded-lg outline-none focus:border-aa-orange border-gray-200"
+                      >
+                        {PROFESSION_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            setProfessionRequestStatus('');
+                            const response = await fetch('/api/profile/profession-request', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              credentials: 'include',
+                              body: JSON.stringify({ profession: professionRequest }),
+                            });
+                            const data = await response.json();
+                            if (!response.ok) {
+                              throw new Error(data.error || 'Failed to request change');
+                            }
+                            setProfile((prev) => ({
+                              ...prev,
+                              profession_request: data.data?.profession_request || professionRequest,
+                              profession_requested_at: data.data?.profession_requested_at || new Date().toISOString(),
+                            }));
+                            setProfessionRequestStatus('Request sent to super admin.');
+                          } catch (error) {
+                            setProfessionRequestStatus(error.message);
+                          }
+                        }}
+                      >
+                        Request Change
+                      </Button>
+                      {professionRequestStatus && (
+                        <span className="text-sm text-aa-gray">{professionRequestStatus}</span>
+                      )}
+                    </div>
+                    {profile.profession_request && (
+                      <p className="text-xs text-aa-gray mt-2">
+                        Pending request: {getProfessionLabel(profile.profession_request)}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex flex-wrap items-center gap-3">
                   <Button
@@ -429,6 +589,9 @@ export default function SettingsPage() {
                           body: JSON.stringify({
                             name: profile.name,
                             email: profile.email,
+                            ...(user?.admin_tier === 'super_admin'
+                              ? { profession: profile.profession }
+                              : {}),
                           }),
                         });
                         const contentType = response.headers.get('content-type') || '';
@@ -444,7 +607,13 @@ export default function SettingsPage() {
                           name: data.data?.name || '',
                           email: data.data?.email || '',
                           phone: data.data?.phone || '',
+                          profession: data.data?.profession || 'astrology',
+                          profession_request: data.data?.profession_request || '',
+                          profession_requested_at: data.data?.profession_requested_at || null,
                         });
+                        setProfessionRequest(
+                          data.data?.profession_request || data.data?.profession || 'astrology'
+                        );
                         await refresh();
                         setSaveStatus('Profile updated.');
                         setTimeout(() => setSaveStatus(''), 2000);
@@ -531,29 +700,71 @@ export default function SettingsPage() {
                 <div>
                   <label className="block text-sm font-semibold text-aa-text-dark mb-3">Theme</label>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 border-2 border-aa-orange rounded-lg cursor-pointer bg-white">
+                    <button
+                      type="button"
+                      onClick={() => handleThemeChange('light')}
+                      className={`p-4 border-2 rounded-lg text-left ${
+                        theme === 'light'
+                          ? 'border-aa-orange bg-white'
+                          : 'border-gray-200 bg-white hover:border-aa-orange'
+                      }`}
+                    >
                       <div className="w-full h-24 bg-gradient-to-br from-aa-orange to-aa-dark-blue rounded-lg mb-3"></div>
                       <p className="font-semibold text-aa-text-dark">Default Theme</p>
-                      <Badge variant="orange" className="mt-2">Active</Badge>
-                    </div>
-                    <div className="p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-aa-orange">
+                      {theme === 'light' ? (
+                        <Badge variant="orange" className="mt-2">Active</Badge>
+                      ) : (
+                        <Badge variant="default" className="mt-2">Use</Badge>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleThemeChange('dark')}
+                      className={`p-4 border-2 rounded-lg text-left ${
+                        theme === 'dark'
+                          ? 'border-aa-orange bg-white'
+                          : 'border-gray-200 bg-white hover:border-aa-orange'
+                      }`}
+                    >
                       <div className="w-full h-24 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg mb-3"></div>
                       <p className="font-semibold text-aa-text-dark">Dark Theme</p>
-                      <Badge variant="default" className="mt-2">Coming Soon</Badge>
-                    </div>
+                      {theme === 'dark' ? (
+                        <Badge variant="orange" className="mt-2">Active</Badge>
+                      ) : (
+                        <Badge variant="default" className="mt-2">Use</Badge>
+                      )}
+                    </button>
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-aa-text-dark mb-3">Accent Color</label>
                   <div className="flex gap-3">
-                    {['#FF6B00', '#0A1F44', '#4CAF50', '#2196F3', '#9C27B0', '#F44336'].map(color => (
-                      <button
-                        key={color}
-                        className="w-12 h-12 rounded-lg border-2 border-gray-200 hover:border-aa-dark-blue"
-                        style={{ backgroundColor: color }}
-                      ></button>
-                    ))}
+                    {ACCENT_COLORS.map((color) => {
+                      const isActive =
+                        accentColor?.toUpperCase() === color.toUpperCase();
+                      return (
+                        <button
+                          key={color}
+                          type="button"
+                          aria-pressed={isActive}
+                          title={`Set accent color ${color}`}
+                          onClick={() => handleAccentChange(color)}
+                          className={`relative w-12 h-12 rounded-lg border-2 ${
+                            isActive
+                              ? 'border-aa-dark-blue ring-2 ring-aa-orange/30'
+                              : 'border-gray-200 hover:border-aa-dark-blue'
+                          }`}
+                          style={{ backgroundColor: color }}
+                        >
+                          {isActive && (
+                            <span className="absolute inset-0 flex items-center justify-center text-white text-sm">
+                              <FontAwesomeIcon icon={faCheck} />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -646,8 +857,7 @@ export default function SettingsPage() {
                 <Input
                   label="Business Category"
                   value={whatsappConfig.category}
-                  onChange={(event) => setWhatsappConfig((prev) => ({ ...prev, category: event.target.value }))}
-                  disabled={!whatsappConnected}
+                  disabled
                 />
 
                 <div className="flex gap-3">

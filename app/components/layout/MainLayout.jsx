@@ -5,6 +5,14 @@ import Sidebar from './Sidebar.jsx';
 import Navbar from './Navbar.jsx';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { isPathAllowed, PUBLIC_PATHS } from '../../../lib/access.js';
+import {
+  applyAccentColor,
+  getStoredAccentColor,
+  DEFAULT_ACCENT_COLOR,
+  applyTheme,
+  getStoredTheme,
+  DEFAULT_THEME,
+} from '../../../lib/appearance.js';
 
 export default function MainLayout({ children }) {
   const pathname = usePathname();
@@ -16,6 +24,13 @@ export default function MainLayout({ children }) {
   useEffect(() => {
     setSidebarOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    const storedAccent = getStoredAccentColor();
+    applyAccentColor(storedAccent || DEFAULT_ACCENT_COLOR);
+    const storedTheme = getStoredTheme();
+    applyTheme(storedTheme || DEFAULT_THEME);
+  }, []);
 
   const isPublic = PUBLIC_PATHS.includes(pathname);
 

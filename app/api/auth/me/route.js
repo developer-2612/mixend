@@ -30,6 +30,9 @@ export async function GET() {
       email: admin.email,
       phone: admin.phone,
       admin_tier: admin.admin_tier,
+      profession: admin.profession,
+      profession_request: admin.profession_request,
+      profession_requested_at: admin.profession_requested_at,
     },
   });
 }

@@ -13,6 +13,7 @@ import {
   faChartBar,
   faUserGroup,
   faGear,
+  faCalendarCheck,
   faChevronLeft,
   faChevronRight,
   faXmark,
@@ -24,18 +25,22 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
   const pathname = usePathname();
   const { user } = useAuth();
 
+  const appointmentProfessions = new Set(['astrology', 'clinic', 'restaurant', 'salon']);
+  const showAppointments = appointmentProfessions.has(user?.profession);
+
   const menuItems = [
     { name: 'Dashboard', icon: faGauge, path: '/dashboard' },
     { name: 'Inbox', icon: faInbox, path: '/inbox', badge: '12' },
     { name: 'Contacts', icon: faUsers, path: '/contacts' },
     { name: 'Leads', icon: faChartLine, path: '/leads' },
+    ...(showAppointments ? [{ name: 'Appointments', icon: faCalendarCheck, path: '/appointments' }] : []),
+    { name: 'Reports', icon: faChartBar, path: '/reports' },
+    { name: 'Admins', icon: faUserGroup, path: '/admins', roles: ['super_admin'] },
+    { name: 'Settings', icon: faGear, path: '/settings' },
     // { name: 'Broadcast', icon: faTowerBroadcast, path: '/broadcast' },
     // { name: 'Automation', icon: faBolt, path: '/automation' },
     // { name: 'Templates', icon: faFileLines, path: '/templates' },
-    { name: 'Reports', icon: faChartBar, path: '/reports' },
     // { name: 'Team', icon: faUserGroup, path: '/team' },
-    { name: 'Admins', icon: faUserGroup, path: '/admins', roles: ['super_admin'] },
-    { name: 'Settings', icon: faGear, path: '/settings' },
   ];
   const visibleItems = filterMenuItems(user?.admin_tier, menuItems);
 
@@ -44,7 +49,7 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
   const showLabels = !collapsed || mobileOpen;
 
   return (
-    <aside 
+    <aside
       className={`${widthClass} ${translateClass} lg:translate-x-0 bg-aa-dark-blue h-screen fixed left-0 top-0 flex flex-col z-50 transition-transform duration-200 ease-out`}
       data-testid="sidebar"
     >
@@ -68,7 +73,7 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
             <FontAwesomeIcon icon={faXmark} style={{ fontSize: 20 }} />
           </button>
         )}
-        <button 
+        <button
           onClick={onToggleCollapse}
           className="text-white/70 hover:text-white p-1 hidden lg:inline-flex"
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -87,20 +92,19 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
         {visibleItems.map((item) => {
           const isActive = pathname === item.path;
           const compact = collapsed && !mobileOpen;
-          
+
           return (
-            <Link 
+            <Link
               key={item.path}
               href={item.path}
               onClick={mobileOpen ? onClose : undefined}
               data-testid={`sidebar-${item.name.toLowerCase()}`}
             >
               <div
-                className={`mx-3 mb-2 flex items-center ${compact ? 'justify-center px-3' : 'gap-3 px-4'} py-3 rounded-lg cursor-pointer ${
-                  isActive 
-                    ? 'bg-aa-orange text-white' 
-                    : 'text-white/70 hover:bg-white/10 hover:text-white'
-                }`}
+                className={`mx-3 mb-2 flex items-center ${compact ? 'justify-center px-3' : 'gap-3 px-4'} py-3 rounded-lg cursor-pointer ${isActive
+                  ? 'bg-aa-orange text-white'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  }`}
               >
                 <FontAwesomeIcon icon={item.icon} style={{ fontSize: 20 }} />
                 {showLabels && (

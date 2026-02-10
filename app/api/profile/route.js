@@ -35,8 +35,22 @@ export async function PUT(request) {
     const body = await request.json();
     const name = typeof body.name === 'string' ? body.name : undefined;
     const email = typeof body.email === 'string' ? body.email : undefined;
+    const professionRaw = typeof body.profession === 'string' ? body.profession.trim() : undefined;
+    const allowedProfessions = new Set([
+      'astrology',
+      'clinic',
+      'restaurant',
+      'salon',
+      'shop',
+    ]);
+    const profession =
+      user.admin_tier === 'super_admin' &&
+      professionRaw &&
+      allowedProfessions.has(professionRaw)
+        ? professionRaw
+        : undefined;
 
-    const admin = await updateAdminProfile(user.id, { name, email });
+    const admin = await updateAdminProfile(user.id, { name, email, profession });
     if (!admin) {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
@@ -46,6 +60,7 @@ export async function PUT(request) {
       email: admin.email,
       phone: admin.phone,
       admin_tier: admin.admin_tier,
+      profession: admin.profession,
     });
 
     const response = NextResponse.json({ success: true, data: admin });

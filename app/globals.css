@@ -5,12 +5,21 @@
 @tailwind utilities;
 
 :root {
-  --aa-dark-blue: #0A1F44;
-  --aa-orange: #FF6B00;
-  --aa-light-bg: #F4F7FC;
-  --aa-white: #FFFFFF;
-  --aa-text-dark: #0F172A;
-  --aa-gray: #64748B;
+  --aa-dark-blue: 10 31 68;
+  --aa-orange: 255 107 0;
+  --aa-light-bg: 244 247 252;
+  --aa-white: 255 255 255;
+  --aa-text-dark: 15 23 42;
+  --aa-gray: 100 116 139;
+}
+
+:root[data-theme='dark'] {
+  --aa-dark-blue: 191 219 254;
+  --aa-light-bg: 15 23 42;
+  --aa-white: 17 24 39;
+  --aa-text-dark: 226 232 240;
+  --aa-gray: 148 163 184;
+  color-scheme: dark;
 }
 
 * {
@@ -21,9 +30,35 @@
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background-color: var(--aa-light-bg);
-  color: var(--aa-text-dark);
+  background-color: rgb(var(--aa-light-bg));
+  color: rgb(var(--aa-text-dark));
   overflow-x: hidden;
+}
+
+:root[data-theme='dark'] .bg-white {
+  background-color: rgb(var(--aa-white)) !important;
+}
+
+:root[data-theme='dark'] .bg-gray-50,
+:root[data-theme='dark'] .bg-gray-100 {
+  background-color: rgb(30 41 59) !important;
+}
+
+:root[data-theme='dark'] .border-gray-200 {
+  border-color: rgb(51 65 85) !important;
+}
+
+:root[data-theme='dark'] .text-gray-500,
+:root[data-theme='dark'] .text-gray-600 {
+  color: rgb(148 163 184) !important;
+}
+
+:root[data-theme='dark'] .text-gray-700 {
+  color: rgb(203 213 225) !important;
+}
+
+:root[data-theme='dark'] [data-testid='sidebar'] {
+  background-color: rgb(30 41 59) !important;
 }
 
 /* Custom scrollbar */
@@ -37,12 +72,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--aa-gray);
+  background: rgb(var(--aa-gray));
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--aa-dark-blue);
+  background: rgb(var(--aa-dark-blue));
 }
 
 /* Smooth transitions */
@@ -56,7 +91,7 @@ button {
 
 /* Utility classes */
 .btn-primary {
-  background: var(--aa-orange);
+  background: rgb(var(--aa-orange));
   color: white;
   padding: 10px 24px;
   border-radius: 8px;
@@ -76,16 +111,16 @@ button {
 
 .btn-secondary {
   background: white;
-  color: var(--aa-dark-blue);
+  color: rgb(var(--aa-dark-blue));
   padding: 10px 24px;
   border-radius: 8px;
   font-weight: 600;
-  border: 2px solid var(--aa-dark-blue);
+  border: 2px solid rgb(var(--aa-dark-blue));
   cursor: pointer;
 }
 
 .btn-secondary:hover {
-  background: var(--aa-dark-blue);
+  background: rgb(var(--aa-dark-blue));
   color: white;
 }
 
@@ -110,12 +145,12 @@ button {
 
 .badge-orange {
   background: #FFF4ED;
-  color: var(--aa-orange);
+  color: rgb(var(--aa-orange));
 }
 
 .badge-blue {
   background: #E8F0FE;
-  color: var(--aa-dark-blue);
+  color: rgb(var(--aa-dark-blue));
 }
 
 .badge-green {
@@ -138,11 +173,11 @@ button {
 }
 
 .input-field:focus {
-  border-color: var(--aa-orange);
+  border-color: rgb(var(--aa-orange));
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, var(--aa-orange) 0%, #FF8533 100%);
+  background: linear-gradient(135deg, rgb(var(--aa-orange)) 0%, #FF8533 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -153,7 +188,7 @@ button {
   width: 40px;
   height: 40px;
   border: 4px solid #f3f3f3;
-  border-top: 4px solid var(--aa-orange);
+  border-top: 4px solid rgb(var(--aa-orange));
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
