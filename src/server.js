@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import http from "node:http";
+import fs from "node:fs/promises";
 import { Server } from "socket.io";
 import {
   startWhatsApp,
@@ -50,6 +51,33 @@ app.use((req, res, next) => {
 
 app.get("/", (req, res) => {
   res.send("Backend running ✅");
+});
+
+app.get("/health/storage", async (req, res) => {
+  if (process.env.DEBUG_STORAGE_CHECK !== "true") {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const authPath = process.env.WHATSAPP_AUTH_PATH || ".wwebjs_auth";
+  try {
+    const stats = await fs.stat(authPath);
+    const entries = await fs.readdir(authPath).catch(() => []);
+    res.json({
+      ok: true,
+      authPath,
+      exists: true,
+      isDirectory: stats.isDirectory(),
+      entryCount: entries.length,
+      sampleEntries: entries.slice(0, 10),
+    });
+  } catch (err) {
+    res.json({
+      ok: false,
+      authPath,
+      exists: false,
+      error: err?.message || "Unknown error",
+    });
+  }
 });
 
 app.get("/whatsapp/status", (req, res) => {
