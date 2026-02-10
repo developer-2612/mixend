@@ -16,9 +16,9 @@
 :root[data-theme='dark'] {
   --aa-dark-blue: 191 219 254;
   --aa-light-bg: 15 23 42;
-  --aa-white: 17 24 39;
+  --aa-white: 30 41 59;
   --aa-text-dark: 226 232 240;
-  --aa-gray: 148 163 184;
+  --aa-gray: 160 174 192;
   color-scheme: dark;
 }
 
@@ -40,14 +40,25 @@ body {
 }
 
 :root[data-theme='dark'] .bg-gray-50,
-:root[data-theme='dark'] .bg-gray-100 {
+:root[data-theme='dark'] .bg-gray-100,
+:root[data-theme='dark'] .bg-gray-200 {
   background-color: rgb(30 41 59) !important;
+}
+
+:root[data-theme='dark'] .bg-gray-300 {
+  background-color: rgb(51 65 85) !important;
 }
 
 :root[data-theme='dark'] .border-gray-200 {
   border-color: rgb(51 65 85) !important;
 }
 
+:root[data-theme='dark'] .border-gray-100,
+:root[data-theme='dark'] .border-gray-300 {
+  border-color: rgb(71 85 105) !important;
+}
+
+:root[data-theme='dark'] .text-gray-400,
 :root[data-theme='dark'] .text-gray-500,
 :root[data-theme='dark'] .text-gray-600 {
   color: rgb(148 163 184) !important;
@@ -57,8 +68,18 @@ body {
   color: rgb(203 213 225) !important;
 }
 
+:root[data-theme='dark'] .text-gray-800,
+:root[data-theme='dark'] .text-gray-900 {
+  color: rgb(226 232 240) !important;
+}
+
+:root[data-theme='dark'] input::placeholder,
+:root[data-theme='dark'] textarea::placeholder {
+  color: rgb(148 163 184) !important;
+}
+
 :root[data-theme='dark'] [data-testid='sidebar'] {
-  background-color: rgb(30 41 59) !important;
+  background-color: rgb(39 52 74) !important;
 }
 
 /* Custom scrollbar */
