@@ -160,7 +160,11 @@ let currentPort = BASE_PORT;
 
 const startServer = (port) => {
   server.listen(port, () => {
-    console.log(`🚀 Backend running on http://localhost:${port}`);
+    const publicUrl = process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL;
+    const normalized =
+      publicUrl && publicUrl.endsWith("/") ? publicUrl.slice(0, -1) : publicUrl;
+    const logUrl = normalized || `http://localhost:${port}`;
+    console.log(`🚀 Backend running on ${logUrl}`);
   });
 };
 
