@@ -1,24 +1,16 @@
-# Node
-node_modules/
+node_modules
 
-# Next.js
-.next/
-out/
-build/
-.next-dev/
+# Next.js build and cache
+.next
+out
+.turbo
 
-# Env
+# WhatsApp Web JS auth/session data
+.wwebjs_auth
+.wwebjs_cache
+
+# Env and logs
 .env
 .env.local
-
-# Whatsapp sessions
-.wwebjs_auth/
-
-# Logs
+.env.*.local
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# OS
-.DS_Store
