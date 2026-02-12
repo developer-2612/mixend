@@ -28,6 +28,7 @@ import {
   storeAccentColor,
   storeTheme,
 } from '../../lib/appearance.js';
+import { getBackendJwt } from '../../lib/backend-auth.js';
 
 const WHATSAPP_API_BASE =
   process.env.NEXT_PUBLIC_WHATSAPP_API_BASE || 'http://localhost:3001';
@@ -91,6 +92,33 @@ export default function SettingsPage() {
     setWhatsappQr(nextQr || '');
     setWhatsappQrVersion((prev) => prev + 1);
     whatsappQrJobRef.current += 1;
+  }, []);
+
+  const fetchWhatsAppApi = useCallback(async (path, options = {}, retry = true) => {
+    const token = await getBackendJwt();
+    const headers = {
+      ...(options.headers || {}),
+      Authorization: `Bearer ${token}`,
+    };
+    const response = await fetch(`${WHATSAPP_API_BASE}${path}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
+
+    if (response.status === 401 && retry) {
+      const freshToken = await getBackendJwt({ forceRefresh: true });
+      return fetch(`${WHATSAPP_API_BASE}${path}`, {
+        ...options,
+        headers: {
+          ...(options.headers || {}),
+          Authorization: `Bearer ${freshToken}`,
+        },
+        credentials: 'include',
+      });
+    }
+
+    return response;
   }, []);
 
   useEffect(() => {
@@ -206,8 +234,8 @@ export default function SettingsPage() {
   const fetchWhatsAppStatus = useCallback(async (isMountedRef = { current: true }) => {
     try {
       if (!user?.id) return;
-      const response = await fetch(
-        `${WHATSAPP_API_BASE}/whatsapp/status?adminId=${user.id}`
+      const response = await fetchWhatsAppApi(
+        `/whatsapp/status?adminId=${user.id}`
       );
       if (!response.ok) {
         throw new Error('Failed to load WhatsApp status');
@@ -235,7 +263,7 @@ export default function SettingsPage() {
         setWhatsappActionStatus('Unable to fetch WhatsApp status.');
       }
     }
-  }, [user?.id]);
+  }, [fetchWhatsAppApi, user?.id]);
 
   useEffect(() => {
     const isMountedRef = { current: true };

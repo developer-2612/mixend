@@ -66,11 +66,15 @@ export default function CatalogPage() {
   const [form, setForm] = useState(buildEmptyForm());
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const fetchItems = async () => {
+  const fetchItems = async ({ bustCache = false } = {}) => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/catalog?limit=500', { credentials: 'include' });
+      const cacheKey = bustCache ? `&ts=${Date.now()}` : '';
+      const response = await fetch(`/api/catalog?limit=500${cacheKey}`, {
+        credentials: 'include',
+        cache: 'no-store',
+      });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || 'Failed to load catalog');
@@ -184,7 +188,7 @@ export default function CatalogPage() {
       setShowModal(false);
       setEditingItem(null);
       setNotice(editingItem ? 'Item updated.' : 'Item created.');
-      await fetchItems();
+      await fetchItems({ bustCache: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -274,7 +278,7 @@ export default function CatalogPage() {
       }
       setNotice('Item deleted.');
       setItems((prev) => prev.filter((entry) => String(entry.id) !== String(deleteTarget.id)));
-      await fetchItems();
+      await fetchItems({ bustCache: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -487,6 +491,7 @@ export default function CatalogPage() {
                     <span className="text-xs text-aa-gray">Order: {item.sort_order ?? 0}</span>
                     <div className="flex items-center gap-3 text-sm font-semibold">
                       <button
+                        type="button"
                         className="flex items-center gap-1 text-aa-dark-blue hover:underline"
                         onClick={() => openEditModal(item)}
                       >
@@ -494,6 +499,7 @@ export default function CatalogPage() {
                         Edit
                       </button>
                       <button
+                        type="button"
                         className="flex items-center gap-1 text-aa-orange hover:underline"
                         onClick={() => handleDuplicate(item)}
                         disabled={saving}
@@ -502,6 +508,7 @@ export default function CatalogPage() {
                         Duplicate
                       </button>
                       <button
+                        type="button"
                         className="flex items-center gap-1 text-red-600 hover:underline"
                         onClick={() => handleDelete(item)}
                         disabled={saving}
@@ -511,6 +518,7 @@ export default function CatalogPage() {
                       </button>
                     </div>
                     <button
+                      type="button"
                       className="flex items-center gap-2 text-sm font-semibold text-aa-dark-blue mt-2"
                       onClick={() => handleToggleActive(item)}
                     >

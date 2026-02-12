@@ -20,7 +20,7 @@ export async function POST(request) {
     const connection = await getConnection();
     try {
       const [rows] = await connection.execute(
-        `SELECT password_hash FROM admin_accounts WHERE id = ? LIMIT 1`,
+        `SELECT password_hash FROM admins WHERE id = ? LIMIT 1`,
         [user.id]
       );
 
@@ -56,7 +56,7 @@ export async function POST(request) {
 
       const passwordHash = hashPassword(newPassword);
       await connection.execute(
-        `UPDATE admin_accounts SET password_hash = ? WHERE id = ?`,
+        `UPDATE admins SET password_hash = ? WHERE id = ?`,
         [passwordHash, user.id]
       );
 

@@ -9,7 +9,6 @@ import {
   faUsers,
   faChartLine,
   faTowerBroadcast,
-  faBolt,
   faFileLines,
   faChartBar,
   faUserGroup,
@@ -95,9 +94,7 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
     { name: 'Admins', icon: faUserGroup, path: '/admins', roles: ['super_admin'] },
     { name: 'Settings', icon: faGear, path: '/settings' },
     // { name: 'Broadcast', icon: faTowerBroadcast, path: '/broadcast' },
-    // { name: 'Automation', icon: faBolt, path: '/automation' },
     // { name: 'Templates', icon: faFileLines, path: '/templates' },
-    // { name: 'Team', icon: faUserGroup, path: '/team' },
   ];
   const visibleItems = filterMenuItems(user?.admin_tier, menuItems);
 

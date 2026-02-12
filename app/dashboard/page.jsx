@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMessage, faUsers, faCircleCheck, faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { faMessage, faUsers, faCircleCheck, faCircleExclamation, faCalendarPlus, faCartShopping, faCalendarCheck } from '@fortawesome/free-solid-svg-icons';
 
 export default function DashboardPage() {
+	const router = useRouter();
 	const [stats, setStats] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [messages, setMessages] = useState([]);
@@ -100,6 +102,60 @@ export default function DashboardPage() {
 			<div>
 				<h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Dashboard</h1>
 				<p className="text-gray-600 mt-2">Welcome back! Here's your business overview.</p>
+			</div>
+
+			{/* Quick Actions */}
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+				<div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition">
+					<div className="flex items-start justify-between gap-4">
+						<div>
+							<p className="text-xs uppercase text-gray-500 font-semibold">Booking</p>
+							<h3 className="text-lg font-bold text-gray-900 mt-2">Manage bookings</h3>
+							<p className="text-sm text-gray-600 mt-1">Review and update upcoming bookings.</p>
+						</div>
+						<FontAwesomeIcon icon={faCalendarCheck} className="text-aa-orange" style={{ fontSize: 32 }} />
+					</div>
+					<button
+						onClick={() => router.push('/appointments')}
+						className="mt-4 w-full rounded-full border border-aa-orange text-aa-orange font-semibold px-4 py-2 hover:bg-aa-orange hover:text-white transition"
+					>
+						Open bookings
+					</button>
+				</div>
+
+				<div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition">
+					<div className="flex items-start justify-between gap-4">
+						<div>
+							<p className="text-xs uppercase text-gray-500 font-semibold">Create</p>
+							<h3 className="text-lg font-bold text-gray-900 mt-2">Create appointment</h3>
+							<p className="text-sm text-gray-600 mt-1">Add a new appointment in seconds.</p>
+						</div>
+						<FontAwesomeIcon icon={faCalendarPlus} className="text-green-500" style={{ fontSize: 32 }} />
+					</div>
+					<button
+						onClick={() => router.push('/appointments?new=1')}
+						className="mt-4 w-full rounded-full bg-aa-dark-blue text-white font-semibold px-4 py-2 hover:bg-aa-dark-blue/90 transition"
+					>
+						Create appointment
+					</button>
+				</div>
+
+				<div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition">
+					<div className="flex items-start justify-between gap-4">
+						<div>
+							<p className="text-xs uppercase text-gray-500 font-semibold">Orders</p>
+							<h3 className="text-lg font-bold text-gray-900 mt-2">Place order</h3>
+							<p className="text-sm text-gray-600 mt-1">Track new WhatsApp orders fast.</p>
+						</div>
+						<FontAwesomeIcon icon={faCartShopping} className="text-blue-500" style={{ fontSize: 32 }} />
+					</div>
+					<button
+						onClick={() => router.push('/orders')}
+						className="mt-4 w-full rounded-full border border-aa-dark-blue text-aa-dark-blue font-semibold px-4 py-2 hover:bg-aa-dark-blue hover:text-white transition"
+					>
+						Go to orders
+					</button>
+				</div>
 			</div>
 
 			{/* Stats Grid */}

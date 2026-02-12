@@ -1,7 +1,8 @@
 import { requireAuth } from '../../../../lib/auth-server';
-import { updateAppointmentStatus } from '../../../../lib/db-helpers';
+import { updateAppointment } from '../../../../lib/db-helpers';
 
 const ALLOWED_STATUSES = new Set(['booked', 'completed', 'cancelled']);
+const ALLOWED_PAYMENT_METHODS = new Set(['cash', 'card', 'upi', 'bank', 'wallet', 'other', '']);
 
 export async function PATCH(request, context) {
   try {
@@ -13,12 +14,58 @@ export async function PATCH(request, context) {
     }
 
     const body = await request.json();
-    const status = String(body?.status || '');
-    if (!ALLOWED_STATUSES.has(status)) {
-      return Response.json({ success: false, error: 'Invalid status' }, { status: 400 });
+    const updates = {};
+
+    if (Object.prototype.hasOwnProperty.call(body, 'status')) {
+      const status = String(body?.status || '');
+      if (!ALLOWED_STATUSES.has(status)) {
+        return Response.json({ success: false, error: 'Invalid status' }, { status: 400 });
+      }
+      updates.status = status;
     }
 
-    const updated = await updateAppointmentStatus(appointmentId, status, authUser.id);
+    if (Object.prototype.hasOwnProperty.call(body, 'appointment_type')) {
+      updates.appointment_type = String(body?.appointment_type || '').trim() || null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'start_time')) {
+      const start = new Date(body?.start_time);
+      if (Number.isNaN(start.getTime())) {
+        return Response.json({ success: false, error: 'Invalid start time' }, { status: 400 });
+      }
+      updates.start_time = start.toISOString();
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'end_time')) {
+      const end = new Date(body?.end_time);
+      if (Number.isNaN(end.getTime())) {
+        return Response.json({ success: false, error: 'Invalid end time' }, { status: 400 });
+      }
+      updates.end_time = end.toISOString();
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'payment_total')) {
+      updates.payment_total = body?.payment_total;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'payment_paid')) {
+      updates.payment_paid = body?.payment_paid;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'payment_method')) {
+      const method = String(body?.payment_method || '');
+      if (!ALLOWED_PAYMENT_METHODS.has(method)) {
+        return Response.json({ success: false, error: 'Invalid payment method' }, { status: 400 });
+      }
+      updates.payment_method = method || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'payment_notes')) {
+      updates.payment_notes = String(body?.payment_notes || '').trim() || null;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return Response.json({ success: false, error: 'No updates provided' }, { status: 400 });
+    }
+
+    const updated = await updateAppointment(appointmentId, updates, authUser.id);
     if (!updated) {
       return Response.json({ success: false, error: 'Appointment not found' }, { status: 404 });
     }

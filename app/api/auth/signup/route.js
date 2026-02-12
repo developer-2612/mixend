@@ -31,7 +31,7 @@ export async function POST(request) {
 
     try {
       const [existing] = await connection.execute(
-        `SELECT id, phone, email FROM admin_accounts WHERE phone = ? OR email = ?`,
+        `SELECT id, phone, email FROM admins WHERE phone = ? OR email = ?`,
         [phone, email]
       );
 
@@ -53,7 +53,7 @@ export async function POST(request) {
       }
 
       const [superAdmins] = await connection.execute(
-        `SELECT COUNT(*) as count FROM admin_accounts WHERE admin_tier = 'super_admin'`
+        `SELECT COUNT(*) as count FROM admins WHERE admin_tier = 'super_admin'`
       );
       const hasSuperAdmin = Number(superAdmins[0]?.count || 0) > 0;
       const allowSuperSignup = process.env.ALLOW_SUPER_ADMIN_SIGNUP === 'true';
@@ -68,7 +68,7 @@ export async function POST(request) {
       const passwordHash = hashPassword(password);
 
       const [rows] = await connection.query(
-        `INSERT INTO admin_accounts (name, phone, email, password_hash, admin_tier, status, profession)
+        `INSERT INTO admins (name, phone, email, password_hash, admin_tier, status, profession)
          VALUES (?, ?, ?, ?, ?, 'active', ?)
          RETURNING id`,
         [name, phone, email, passwordHash, adminTier, profession]

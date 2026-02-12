@@ -118,7 +118,7 @@ const getAdminAISettings = async (adminId) => {
   }
   const [rows] = await db.query(
     `SELECT ai_enabled, ai_prompt, ai_blocklist
-     FROM admin_accounts
+     FROM admins
      WHERE id = ?
      LIMIT 1`,
     [adminId]
@@ -137,7 +137,7 @@ const getAdminAutomationProfile = async (adminId) => {
   }
   const [rows] = await db.query(
     `SELECT profession
-     FROM admin_accounts
+     FROM admins
      WHERE id = ?
      LIMIT 1`,
     [adminId]
@@ -249,7 +249,7 @@ const getAdminCatalogItems = async (adminId) => {
   try {
     const [rows] = await db.query(
       `SELECT id, item_type, name, category, description, price_label, duration_minutes, details_prompt, keywords, is_active, sort_order, is_bookable
-       FROM admin_catalog_items
+       FROM services_products
        WHERE admin_id = ?
        ORDER BY sort_order ASC, name ASC, id ASC`,
       [adminId]
@@ -431,7 +431,7 @@ const updateAdminWhatsAppDetails = async (session) => {
   session.state.activeAdminNumber = widUser;
   session.state.activeAdminName = displayName;
   await db.query(
-    `UPDATE admin_accounts
+    `UPDATE admins
      SET whatsapp_number = ?, whatsapp_name = ?, whatsapp_connected_at = NOW()
      WHERE id = ?`,
     [session.state.activeAdminNumber, session.state.activeAdminName, session.adminId]
@@ -1697,7 +1697,7 @@ const startAppointmentFlow = async ({ user, sendMessage, appointmentType }) => {
 const logMessage = async ({ userId, adminId, text, type }) => {
   if (!userId || !adminId || !text) return;
   await db.query(
-    `INSERT INTO messages (user_id, admin_id, message_text, message_type, status)
+    `INSERT INTO contact_messages (user_id, admin_id, message_text, message_type, status)
      VALUES (?, ?, ?, ?, 'delivered')`,
     [userId, adminId, text, type]
   );
@@ -1759,7 +1759,7 @@ const savePartialLead = async ({ user, phone, assignedAdminId }) => {
   const category = user.data.reason ? `Partial - ${user.data.reason}` : "Partial";
 
   await db.query(
-    `INSERT INTO user_requirements (user_id, requirement_text, category, status)
+    `INSERT INTO requirements (user_id, requirement_text, category, status)
      VALUES (?, ?, ?, 'pending')`,
     [user.clientId, summary, category]
   );
@@ -1869,14 +1869,14 @@ const finalizeLead = async ({
 
   if (!clientId) {
     const [rows] = await db.query(
-      "INSERT INTO users (name, phone, email, assigned_admin_id) VALUES (?, ?, ?, ?) RETURNING id",
+      "INSERT INTO contacts (name, phone, email, assigned_admin_id) VALUES (?, ?, ?, ?) RETURNING id",
       [displayName, phone, email, adminId]
     );
     clientId = rows[0]?.id || null;
   }
   if (clientId) {
     await db.query(
-      "UPDATE users SET name = COALESCE(?, name), email = COALESCE(?, email) WHERE id = ?",
+      "UPDATE contacts SET name = COALESCE(?, name), email = COALESCE(?, email) WHERE id = ?",
       [displayName !== "Unknown" ? displayName : null, email, clientId]
     );
   }
@@ -1886,7 +1886,7 @@ const finalizeLead = async ({
     user.data.serviceType || user.data.productType || user.data.reason || "General";
 
   await db.query(
-    `INSERT INTO user_requirements (user_id, requirement_text, category, status)
+    `INSERT INTO requirements (user_id, requirement_text, category, status)
      VALUES (?, ?, ?, 'pending')`,
     [clientId, requirementText, requirementCategory]
   );
@@ -1944,7 +1944,7 @@ function attachAutomationHandlers(session) {
     }
 
     const [rows] = await db.query(
-      "SELECT id, name, email, assigned_admin_id FROM users WHERE phone = ?",
+      "SELECT id, name, email, assigned_admin_id FROM contacts WHERE phone = ?",
       [phone]
     );
 
@@ -1954,7 +1954,7 @@ function attachAutomationHandlers(session) {
     if (existingUser && existingUser.assigned_admin_id !== activeAdminId) {
       assignedAdminId = activeAdminId;
       await db.query(
-        "UPDATE users SET assigned_admin_id = ? WHERE id = ?",
+        "UPDATE contacts SET assigned_admin_id = ? WHERE id = ?",
         [activeAdminId, existingUser.id]
       );
     }
@@ -1962,7 +1962,7 @@ function attachAutomationHandlers(session) {
     if (!isReturningUser) {
       try {
         const [rows] = await db.query(
-          "INSERT INTO users (phone, assigned_admin_id) VALUES (?, ?) RETURNING id",
+          "INSERT INTO contacts (phone, assigned_admin_id) VALUES (?, ?) RETURNING id",
           [phone, assignedAdminId]
         );
         existingUser = {
@@ -1974,7 +1974,7 @@ function attachAutomationHandlers(session) {
       } catch (err) {
         if (err.code === "ER_DUP_ENTRY") {
           const [freshRows] = await db.query(
-            "SELECT id, name, email, assigned_admin_id FROM users WHERE phone = ?",
+            "SELECT id, name, email, assigned_admin_id FROM contacts WHERE phone = ?",
             [phone]
           );
           if (freshRows.length > 0) {

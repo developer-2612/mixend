@@ -47,7 +47,7 @@ export async function POST(request) {
     try {
       const [rows] = await connection.execute(
         `SELECT id, name, email
-         FROM admin_accounts
+         FROM admins
          WHERE LOWER(email) = ?${phoneClause} OR id = ?
          LIMIT 1`,
         [identifierLower, ...phoneCandidates, idValue]
@@ -75,7 +75,7 @@ export async function POST(request) {
       const tokenHash = hashToken(tempPassword);
 
       await connection.query(
-        `UPDATE admin_accounts
+        `UPDATE admins
          SET reset_token_hash = ?, reset_expires_at = ?
          WHERE id = ?`,
         [tokenHash, expiresAt.toISOString(), user.id]

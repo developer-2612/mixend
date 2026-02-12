@@ -33,6 +33,11 @@ PORT=3001
 # Optional SMTP (for super admin password email)
 SMTP_EMAIL=
 SMTP_PASSWORD=
+
+# Optional Google OAuth
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
 ```
 
 ## Database Setup (Supabase Postgres)

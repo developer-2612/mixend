@@ -3,8 +3,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserShield, faUserSlash } from '@fortawesome/free-solid-svg-icons';
+import { faUserPen, faRotateRight } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../components/auth/AuthProvider.jsx';
+import Card from '../components/common/Card.jsx';
+import Button from '../components/common/Button.jsx';
+import Badge from '../components/common/Badge.jsx';
+import Loader from '../components/common/Loader.jsx';
+import Modal from '../components/common/Modal.jsx';
+import Input from '../components/common/Input.jsx';
 
 export default function AdminsPage() {
   const router = useRouter();
@@ -14,6 +20,19 @@ export default function AdminsPage() {
   const [search, setSearch] = useState('');
   const [updatingId, setUpdatingId] = useState(null);
   const [error, setError] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [editForm, setEditForm] = useState({
+    id: null,
+    name: '',
+    email: '',
+    phone: '',
+    admin_tier: 'client_admin',
+    status: 'active',
+    profession: 'astrology',
+    profession_request: '',
+  });
 
   useEffect(() => {
     if (!authLoading && user && user.admin_tier !== 'super_admin') {
@@ -60,10 +79,60 @@ export default function AdminsPage() {
       setAdmins((prev) =>
         prev.map((admin) => (admin.id === adminId ? data.data : admin))
       );
+      return { ok: true };
     } catch (err) {
       setError(err.message || 'Failed to update admin');
+      return { ok: false, error: err };
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const openEdit = (admin) => {
+    setEditError('');
+    setEditForm({
+      id: admin.id,
+      name: admin.name || '',
+      email: admin.email || '',
+      phone: admin.phone || '',
+      admin_tier: admin.admin_tier || 'client_admin',
+      status: admin.status || 'active',
+      profession: admin.profession || 'astrology',
+      profession_request: admin.profession_request || '',
+    });
+    setEditOpen(true);
+  };
+
+  const handleEditChange = (field) => (event) => {
+    setEditForm((prev) => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const saveEdit = async () => {
+    if (!editForm.id) return;
+    setEditSaving(true);
+    setEditError('');
+    try {
+      const result = await updateAdmin(editForm.id, {
+        admin_tier: editForm.admin_tier,
+        status: editForm.status,
+        profession: editForm.profession,
+      });
+      if (!result.ok) {
+        throw result.error || new Error('Failed to update admin');
+      }
+      setEditOpen(false);
+    } catch (err) {
+      setEditError(err.message || 'Failed to update admin');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const toggleStatus = async (admin) => {
+    const nextStatus = admin.status === 'active' ? 'inactive' : 'active';
+    const result = await updateAdmin(admin.id, { status: nextStatus });
+    if (!result.ok) {
+      setEditError(result.error?.message || 'Failed to update admin');
     }
   };
 
@@ -80,6 +149,17 @@ export default function AdminsPage() {
   const totalCount = admins.length;
   const superCount = admins.filter((admin) => admin.admin_tier === 'super_admin').length;
   const activeCount = admins.filter((admin) => admin.status === 'active').length;
+  const roleColors = {
+    super_admin: 'blue',
+    client_admin: 'orange',
+  };
+  const professionOptions = [
+    { value: 'astrology', label: 'Astrology' },
+    { value: 'clinic', label: 'Clinic' },
+    { value: 'restaurant', label: 'Restaurant' },
+    { value: 'salon', label: 'Salon' },
+    { value: 'shop', label: 'Retail Shop' },
+  ];
 
   if (authLoading || (user && user.admin_tier !== 'super_admin')) {
     return null;
@@ -87,163 +167,195 @@ export default function AdminsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-aa-orange mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading admins...</p>
-        </div>
+      <div className="h-full flex items-center justify-center">
+        <Loader size="lg" text="Loading admins..." />
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="space-y-6" data-testid="admins-page">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Admins</h1>
-          <p className="text-gray-600 mt-1">Manage admin access and roles</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-aa-dark-blue mb-2">Admins</h1>
+          <p className="text-aa-gray">Manage your admin members and their roles</p>
         </div>
-        <button
+        <Button
+          variant="primary"
+          icon={<FontAwesomeIcon icon={faRotateRight} style={{ fontSize: 18 }} />}
+          className="w-full sm:w-auto"
           onClick={fetchAdmins}
-          className="px-4 py-2 rounded-full border border-aa-orange text-aa-orange font-semibold hover:bg-aa-orange hover:text-white transition w-full sm:w-auto self-start"
         >
           Refresh
-        </button>
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <p className="text-sm text-gray-500">Total Admins</p>
-          <p className="text-2xl font-bold text-gray-900">{totalCount}</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <p className="text-sm text-gray-500">Super Admins</p>
-          <p className="text-2xl font-bold text-gray-900">{superCount}</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <p className="text-sm text-gray-500">Active</p>
-          <p className="text-2xl font-bold text-gray-900">{activeCount}</p>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <h3 className="text-sm font-semibold text-aa-gray mb-2">Total Admins</h3>
+          <p className="text-3xl font-bold text-aa-dark-blue">{totalCount}</p>
+        </Card>
+        <Card>
+          <h3 className="text-sm font-semibold text-aa-gray mb-2">Super Admins</h3>
+          <p className="text-3xl font-bold text-aa-orange">{superCount}</p>
+        </Card>
+        <Card>
+          <h3 className="text-sm font-semibold text-aa-gray mb-2">Active</h3>
+          <p className="text-3xl font-bold text-green-600">{activeCount}</p>
+        </Card>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
-        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
-          <input
-            type="text"
-            placeholder="Search by name, email, phone, role..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-aa-orange"
-          />
-          {error && <p className="text-sm text-red-600">{error}</p>}
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px]">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase">Admin</th>
-                <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase">Contact</th>
-                <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase">Role</th>
-                <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase">Profession</th>
-                <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase">Status</th>
-                <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAdmins.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="text-center py-6 text-gray-500">
-                    No admins found.
-                  </td>
-                </tr>
-              ) : (
-                filteredAdmins.map((admin) => {
-                  const isSelf = admin.id === user.id;
-                  return (
-                    <tr key={admin.id} className="border-b border-gray-100">
-                      <td className="py-4 px-3">
-                        <p className="font-semibold text-gray-900">{admin.name || 'Unnamed'}</p>
-                        <p className="text-xs text-gray-500">ID: {admin.id}</p>
-                      </td>
-                      <td className="py-4 px-3 text-sm text-gray-600">
-                        <p>{admin.email || '—'}</p>
-                        <p>{admin.phone || '—'}</p>
-                      </td>
-                      <td className="py-4 px-3">
-                        <select
-                          value={admin.admin_tier}
-                          onChange={(e) => updateAdmin(admin.id, { admin_tier: e.target.value })}
-                          disabled={isSelf || updatingId === admin.id}
-                          className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-aa-orange disabled:opacity-60"
-                        >
-                          <option value="super_admin">Super Admin</option>
-                          <option value="client_admin">Admin</option>
-                        </select>
-                      </td>
-                      <td className="py-4 px-3">
-                        <div className="flex flex-col gap-2">
-                          <select
-                            value={admin.profession || 'astrology'}
-                            onChange={(e) => updateAdmin(admin.id, { profession: e.target.value })}
-                            disabled={updatingId === admin.id}
-                            className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-aa-orange disabled:opacity-60"
-                          >
-                            <option value="astrology">Astrology</option>
-                            <option value="clinic">Clinic</option>
-                            <option value="restaurant">Restaurant</option>
-                            <option value="salon">Salon</option>
-                            <option value="shop">Retail Shop</option>
-                          </select>
-                          {admin.profession_request && (
-                            <div className="flex items-center gap-2 text-xs text-aa-gray">
-                              <span>Requested: {admin.profession_request}</span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  updateAdmin(admin.id, { profession: admin.profession_request })
-                                }
-                                disabled={updatingId === admin.id}
-                                className="px-2 py-0.5 rounded-full border border-aa-orange text-aa-orange hover:bg-aa-orange hover:text-white transition disabled:opacity-60"
-                              >
-                                Apply
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-4 px-3">
-                        <select
-                          value={admin.status}
-                          onChange={(e) => updateAdmin(admin.id, { status: e.target.value })}
-                          disabled={isSelf || updatingId === admin.id}
-                          className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-aa-orange disabled:opacity-60"
-                        >
-                          <option value="active">Active</option>
-                          <option value="inactive">Inactive</option>
-                        </select>
-                      </td>
-                      <td className="py-4 px-3 text-sm text-gray-600">
-                        {admin.status === 'active' ? (
-                          <span className="inline-flex items-center gap-2 text-green-700">
-                            <FontAwesomeIcon icon={faUserShield} />
-                            Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-2 text-red-600">
-                            <FontAwesomeIcon icon={faUserSlash} />
-                            Disabled
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <Input
+          placeholder="Search by name, email, phone, role..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1"
+        />
+        {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredAdmins.length === 0 ? (
+          <Card>
+            <p className="text-aa-gray text-sm">No admins found.</p>
+          </Card>
+        ) : (
+          filteredAdmins.map((admin) => (
+            <Card key={admin.id} data-testid={`admin-card-${admin.id}`}>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-full bg-aa-dark-blue flex items-center justify-center">
+                    <span className="text-white font-bold text-xl">
+                      {admin.name?.charAt(0) || 'A'}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-aa-dark-blue">{admin.name || 'Unnamed'}</h3>
+                    <Badge variant={roleColors[admin.admin_tier] || 'default'}>
+                      {admin.admin_tier === 'super_admin' ? 'Super Admin' : 'Admin'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 mb-4">
+                <div className="text-sm text-aa-gray">{admin.email || '—'}</div>
+                <div className="text-sm text-aa-gray">{admin.phone || '—'}</div>
+                <div className="text-sm text-aa-gray">Profession: {admin.profession || 'astrology'}</div>
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${admin.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                  <span className="text-sm text-aa-gray">
+                    {admin.status === 'active' ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                {admin.profession_request && (
+                  <div className="text-xs text-aa-gray">
+                    Requested: {admin.profession_request}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  className="flex-1 text-sm py-2"
+                  onClick={() => openEdit(admin)}
+                  disabled={updatingId === admin.id}
+                >
+                  <FontAwesomeIcon icon={faUserPen} />
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="flex-1 text-sm py-2 text-red-600 hover:bg-red-50"
+                  onClick={() => toggleStatus(admin)}
+                  disabled={updatingId === admin.id}
+                >
+                  {admin.status === 'active' ? 'Deactivate' : 'Activate'}
+                </Button>
+              </div>
+            </Card>
+          ))
+        )}
+      </div>
+
+      <Modal
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        title="Edit Admin"
+        size="md"
+      >
+        <div className="space-y-4">
+          {editError && <p className="text-sm text-red-600">{editError}</p>}
+          <Input label="Name" value={editForm.name} onChange={handleEditChange('name')} disabled />
+          <Input label="Email" value={editForm.email} onChange={handleEditChange('email')} disabled />
+          <Input label="Phone" value={editForm.phone} onChange={handleEditChange('phone')} disabled />
+
+          <div>
+            <label className="block text-sm font-semibold text-aa-text-dark mb-2">Role</label>
+            <select
+              value={editForm.admin_tier}
+              onChange={handleEditChange('admin_tier')}
+              className="w-full px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-200 rounded-lg outline-none focus:border-aa-orange"
+            >
+              <option value="super_admin">Super Admin</option>
+              <option value="client_admin">Admin</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-aa-text-dark mb-2">Profession</label>
+            <select
+              value={editForm.profession}
+              onChange={handleEditChange('profession')}
+              className="w-full px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-200 rounded-lg outline-none focus:border-aa-orange"
+            >
+              {professionOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-aa-text-dark mb-2">Status</label>
+            <select
+              value={editForm.status}
+              onChange={handleEditChange('status')}
+              className="w-full px-4 py-2.5 sm:py-3 text-sm sm:text-base border-2 border-gray-200 rounded-lg outline-none focus:border-aa-orange"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          {editForm.profession_request && (
+            <div className="rounded-lg border border-aa-orange/30 bg-aa-orange/10 px-4 py-3 text-sm text-aa-dark-blue">
+              Requested: {editForm.profession_request}
+              <div className="mt-2">
+                <Button
+                  variant="outline"
+                  className="text-sm"
+                  onClick={() => setEditForm((prev) => ({ ...prev, profession: prev.profession_request }))}
+                >
+                  Apply Requested Profession
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-2 justify-end pt-2">
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={saveEdit} disabled={editSaving}>
+              {editSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

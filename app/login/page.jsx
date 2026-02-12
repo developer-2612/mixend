@@ -195,6 +195,23 @@ export default function LoginPage() {
             </Button>
           </form>
 
+          <div className="flex items-center gap-3 my-5">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-xs text-aa-gray uppercase tracking-wide">or</span>
+            <div className="h-px flex-1 bg-gray-200" />
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              window.location.href = '/api/auth/google/start';
+            }}
+          >
+            Continue with Google
+          </Button>
+
           <div className="mt-4 text-center">
             <button
               type="button"

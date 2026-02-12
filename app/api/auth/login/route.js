@@ -29,7 +29,7 @@ export async function POST(request) {
 
       const [users] = await connection.execute(
         `SELECT id, name, email, phone, password_hash, admin_tier, status, profession
-         FROM admin_accounts
+         FROM admins
          WHERE LOWER(email) = ?${phoneClause} OR id = ?
          LIMIT 1`,
         [identifierLower, ...phoneCandidates, idValue]

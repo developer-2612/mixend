@@ -1,5 +1,6 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { clearBackendJwtCache } from '../../../lib/backend-auth.js';
 
 const AuthContext = createContext({
   user: null,
@@ -16,6 +17,7 @@ export function AuthProvider({ children }) {
     try {
       const response = await fetch('/api/auth/me', { credentials: 'include' });
       if (!response.ok) {
+        clearBackendJwtCache();
         setUser(null);
         return;
       }
@@ -32,6 +34,7 @@ export function AuthProvider({ children }) {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } finally {
+      clearBackendJwtCache();
       setUser(null);
     }
   }, []);
