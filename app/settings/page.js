@@ -9,10 +9,8 @@ import { useAuth } from '../components/auth/AuthProvider.jsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faUser,
-  faBell,
   faPalette,
   faMobileScreen,
-  faGlobe,
   faShieldHalved,
   faCheck,
 } from '@fortawesome/free-solid-svg-icons';
@@ -357,13 +355,13 @@ export default function SettingsPage() {
   };
 
   const tabs = [
-    { id: 'profile', name: 'Profile', icon: faUser },
-    // { id: 'notifications', name: 'Notifications', icon: faBell },
-    { id: 'appearance', name: 'Appearance', icon: faPalette },
-    { id: 'whatsapp', name: 'WhatsApp', icon: faMobileScreen },
-    // { id: 'integrations', name: 'Integrations', icon: faGlobe },
-    { id: 'security', name: 'Security', icon: faShieldHalved }
+    { id: 'profile', name: 'Profile', icon: faUser, hint: 'Identity and account data' },
+    { id: 'appearance', name: 'Appearance', icon: faPalette, hint: 'Theme and accent colors' },
+    { id: 'whatsapp', name: 'WhatsApp', icon: faMobileScreen, hint: 'Connection and QR pairing' },
+    { id: 'security', name: 'Security', icon: faShieldHalved, hint: 'Password and sessions' },
   ];
+
+  const activeTabMeta = tabs.find((tab) => tab.id === activeTab) || tabs[0];
 
   const isWhatsappPending = whatsappStatus === 'starting' || whatsappStatus === 'qr';
   const canDisconnect = whatsappConnected || whatsappStatus === 'connected_other';
@@ -392,174 +390,232 @@ export default function SettingsPage() {
     : 'WhatsApp client is currently disconnected.';
 
   return (
-    <div className="space-y-6" data-testid="settings-page">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-aa-dark-blue mb-2">Settings</h1>
-        <p className="text-aa-gray">Manage your account and application preferences</p>
-      </div>
+    <div
+      className="space-y-6 rounded-3xl border border-white/60 bg-[radial-gradient(circle_at_top_right,_#fff4ea_0%,_#ffffff_42%,_#eef4ff_100%)] p-4 sm:p-6"
+      data-testid="settings-page"
+    >
+      <Card className="border border-white/70 bg-white/85 backdrop-blur">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-aa-dark-blue">Settings</h1>
+            <p className="text-aa-gray mt-2">Manage your account and preferences from one place.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={whatsappConnected ? 'green' : 'yellow'}>
+              WhatsApp: {whatsappStatusLabel}
+            </Badge>
+            <Badge variant="blue">Current: {activeTabMeta.name}</Badge>
+          </div>
+        </div>
+      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Tabs Sidebar */}
-        <div className="col-span-1 lg:col-span-3">
-          <Card className="p-2">
-            <div className="flex gap-2 overflow-x-auto lg:block">
-              {tabs.map(tab => {
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex-shrink-0 lg:w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left whitespace-nowrap lg:whitespace-normal ${
-                      activeTab === tab.id
-                        ? 'bg-aa-orange text-white'
-                        : 'text-aa-gray hover:bg-gray-50'
-                    }`}
-                    data-testid={`settings-tab-${tab.id}`}
-                  >
-                    <FontAwesomeIcon icon={tab.icon} style={{ fontSize: 18 }} />
-                    <span className="font-semibold">{tab.name}</span>
-                  </button>
-                );
-              })}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <div className="lg:sticky lg:top-20 lg:self-start">
+          <Card className="border border-white/70 bg-white/90 backdrop-blur p-3">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-1">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
+                    activeTab === tab.id
+                      ? 'border-aa-orange bg-aa-orange/10 shadow-sm'
+                      : 'border-gray-200 bg-white hover:border-aa-orange/40 hover:bg-gray-50'
+                  }`}
+                  data-testid={`settings-tab-${tab.id}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span
+                      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                        activeTab === tab.id
+                          ? 'bg-aa-orange text-white'
+                          : 'bg-aa-dark-blue/10 text-aa-dark-blue'
+                      }`}
+                    >
+                      <FontAwesomeIcon icon={tab.icon} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-aa-text-dark">{tab.name}</span>
+                      <span className="block text-xs text-aa-gray mt-0.5">{tab.hint}</span>
+                    </span>
+                  </div>
+                </button>
+              ))}
             </div>
           </Card>
         </div>
 
-        {/* Content Area */}
-        <div className="col-span-1 lg:col-span-9">
+        <div className="min-w-0">
           {/* Profile Settings */}
           {activeTab === 'profile' && (
-            <Card>
-              <h2 className="text-2xl font-bold text-aa-dark-blue mb-6">Profile Settings</h2>
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4 pb-6 border-b border-gray-200">
-                  <div className="w-24 h-24 rounded-full bg-aa-dark-blue flex items-center justify-center overflow-hidden">
-                    {profilePhotoPreview ? (
-                      <img
-                        src={profilePhotoPreview}
-                        alt="Profile"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-white font-bold text-3xl">
-                        {profile.name?.charAt(0) || 'A'}
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <input
-                      id="profile-photo-input"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (!file) return;
-                        setProfilePhoto(file);
-                        setProfilePhotoPreview(URL.createObjectURL(file));
-                      }}
-                    />
-                    <div className="flex items-center gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={() => document.getElementById('profile-photo-input')?.click()}
-                      >
-                        Change Photo
-                      </Button>
-                      {profilePhotoPreview && (
-                        <Button
-                          variant="ghost"
-                          onClick={() => {
-                            setProfilePhoto(null);
-                            setProfilePhotoPreview(null);
+            <Card className="border border-white/70 bg-white/90 backdrop-blur">
+              <div className="mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-aa-dark-blue">Profile Settings</h2>
+                <p className="mt-1 text-sm text-aa-gray">
+                  Keep your account details up to date for appointments and reporting.
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+                    <p className="text-xs uppercase tracking-wide text-aa-gray">Profile Photo</p>
+                    <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
+                      <div className="h-24 w-24 rounded-2xl bg-aa-dark-blue flex items-center justify-center overflow-hidden shadow-sm">
+                        {profilePhotoPreview ? (
+                          <img
+                            src={profilePhotoPreview}
+                            alt="Profile"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-white font-bold text-3xl">
+                            {profile.name?.charAt(0) || 'A'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <input
+                          id="profile-photo-input"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (!file) return;
+                            setProfilePhoto(file);
+                            setProfilePhotoPreview(URL.createObjectURL(file));
                           }}
-                        >
-                          Remove
-                        </Button>
+                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            variant="outline"
+                            className="min-w-[132px]"
+                            onClick={() => document.getElementById('profile-photo-input')?.click()}
+                          >
+                            Change Photo
+                          </Button>
+                          {profilePhotoPreview && (
+                            <Button
+                              variant="ghost"
+                              onClick={() => {
+                                setProfilePhoto(null);
+                                setProfilePhotoPreview(null);
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                        <p className="mt-2 text-xs text-aa-gray">JPG, PNG. Max 2MB.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-aa-orange/20 bg-aa-orange/5 p-4 sm:p-5">
+                    <p className="text-xs uppercase tracking-wide text-aa-gray">Account Summary</p>
+                    <div className="mt-3 space-y-3">
+                      <div className="flex items-center justify-between rounded-xl bg-white/90 px-3 py-2">
+                        <span className="text-sm text-aa-gray">Role</span>
+                        <span className="text-sm font-semibold text-aa-text-dark">
+                          {user?.admin_tier === 'super_admin' ? 'Super Admin' : 'Admin'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between rounded-xl bg-white/90 px-3 py-2">
+                        <span className="text-sm text-aa-gray">Current Profession</span>
+                        <span className="text-sm font-semibold text-aa-text-dark">
+                          {getProfessionLabel(profile.profession)}
+                        </span>
+                      </div>
+                      {profile.profession_request && (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                          <p className="text-xs text-amber-700">Pending change request</p>
+                          <p className="text-sm font-semibold text-amber-800">
+                            {getProfessionLabel(profile.profession_request)}
+                          </p>
+                        </div>
                       )}
                     </div>
-                    <p className="text-xs text-aa-gray mt-2">JPG, PNG. Max size 2MB</p>
                   </div>
                 </div>
 
                 {profileError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {profileError}
                   </div>
                 )}
 
-                {profileLoading ? (
-                  <div className="p-4 bg-gray-50 rounded-lg text-aa-gray text-sm">
-                    Loading profile data...
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                      label="Full Name"
-                      value={profile.name}
-                      onChange={(event) => setProfile((prev) => ({ ...prev, name: event.target.value }))}
-                      placeholder="Enter your name"
-                    />
-                    <Input
-                      label="Email"
-                      type="email"
-                      value={profile.email}
-                      onChange={(event) => setProfile((prev) => ({ ...prev, email: event.target.value }))}
-                      placeholder="Enter your email"
-                    />
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Phone"
-                    value={profile.phone}
-                    onChange={(event) => setProfile((prev) => ({ ...prev, phone: event.target.value }))}
-                    placeholder="Enter phone number"
-                    disabled
-                  />
-                  {user?.admin_tier === 'super_admin' ? (
-                    <div className="w-full">
-                      <label className="block text-sm font-semibold text-aa-text-dark mb-2">
-                        Profession <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={profile.profession}
-                          onChange={(event) =>
-                            setProfile((prev) => ({ ...prev, profession: event.target.value }))
-                          }
-                          className="w-full px-4 py-3 border-2 rounded-lg outline-none focus:border-aa-orange border-gray-200"
-                        >
-                          {PROFESSION_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+                  {profileLoading ? (
+                    <div className="rounded-xl bg-gray-50 px-4 py-6 text-sm text-aa-gray">
+                      Loading profile data...
                     </div>
                   ) : (
-                    <div className="w-full">
-                      <label className="block text-sm font-semibold text-aa-text-dark mb-2">
-                        Profession
-                      </label>
-                      <div className="px-4 py-3 border-2 rounded-lg bg-gray-50 text-aa-text-dark">
-                        {getProfessionLabel(profile.profession)}
-                      </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Input
+                        label="Full Name"
+                        value={profile.name}
+                        onChange={(event) => setProfile((prev) => ({ ...prev, name: event.target.value }))}
+                        placeholder="Enter your name"
+                      />
+                      <Input
+                        label="Email"
+                        type="email"
+                        value={profile.email}
+                        onChange={(event) => setProfile((prev) => ({ ...prev, email: event.target.value }))}
+                        placeholder="Enter your email"
+                      />
+                      <Input
+                        label="Phone"
+                        value={profile.phone}
+                        onChange={(event) => setProfile((prev) => ({ ...prev, phone: event.target.value }))}
+                        placeholder="Enter phone number"
+                        disabled
+                      />
+                      {user?.admin_tier === 'super_admin' ? (
+                        <div className="w-full">
+                          <label className="mb-2 block text-sm font-semibold text-aa-text-dark">
+                            Profession <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            value={profile.profession}
+                            onChange={(event) =>
+                              setProfile((prev) => ({ ...prev, profession: event.target.value }))
+                            }
+                            className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-aa-orange sm:py-3 sm:text-base"
+                          >
+                            {PROFESSION_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="w-full">
+                          <label className="mb-2 block text-sm font-semibold text-aa-text-dark">
+                            Profession
+                          </label>
+                          <div className="rounded-lg border-2 border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-aa-text-dark sm:py-3 sm:text-base">
+                            {getProfessionLabel(profile.profession)}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
 
                 {user?.admin_tier !== 'super_admin' && (
-                  <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                    <p className="text-sm font-semibold text-aa-text-dark mb-3">
-                      Request Profession Change
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5">
+                    <p className="text-sm font-semibold text-aa-text-dark">Request Profession Change</p>
+                    <p className="mt-1 text-xs text-aa-gray">
+                      Send a request to super admin for business type change.
                     </p>
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
                       <select
                         value={professionRequest}
                         onChange={(event) => setProfessionRequest(event.target.value)}
-                        className="px-4 py-2 border-2 rounded-lg outline-none focus:border-aa-orange border-gray-200"
+                        className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-aa-orange sm:w-auto sm:min-w-[220px] sm:py-3 sm:text-base"
                       >
                         {PROFESSION_OPTIONS.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -569,6 +625,7 @@ export default function SettingsPage() {
                       </select>
                       <Button
                         variant="outline"
+                        className="w-full sm:w-auto"
                         onClick={async () => {
                           try {
                             setProfessionRequestStatus('');
@@ -585,7 +642,8 @@ export default function SettingsPage() {
                             setProfile((prev) => ({
                               ...prev,
                               profession_request: data.data?.profession_request || professionRequest,
-                              profession_requested_at: data.data?.profession_requested_at || new Date().toISOString(),
+                              profession_requested_at:
+                                data.data?.profession_requested_at || new Date().toISOString(),
                             }));
                             setProfessionRequestStatus('Request sent to super admin.');
                           } catch (error) {
@@ -595,118 +653,131 @@ export default function SettingsPage() {
                       >
                         Request Change
                       </Button>
-                      {professionRequestStatus && (
-                        <span className="text-sm text-aa-gray">{professionRequestStatus}</span>
-                      )}
                     </div>
-                    {profile.profession_request && (
-                      <p className="text-xs text-aa-gray mt-2">
-                        Pending request: {getProfessionLabel(profile.profession_request)}
-                      </p>
+                    {professionRequestStatus && (
+                      <p className="mt-2 text-sm text-aa-gray">{professionRequestStatus}</p>
                     )}
                   </div>
                 )}
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    variant="primary"
-                    onClick={async () => {
-                      try {
-                        setSaveStatus('');
-                        if (profilePhoto) {
-                          const formData = new FormData();
-                          formData.append('photo', profilePhoto);
-                          const photoResponse = await fetch('/api/profile/photo', {
-                            method: 'POST',
-                            body: formData,
+                <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="order-2 sm:order-1">
+                    {saveStatus && (
+                      <span
+                        className={`text-sm font-semibold ${
+                          saveStatus.includes('Failed') || saveStatus.includes('error')
+                            ? 'text-red-600'
+                            : 'text-green-600'
+                        }`}
+                      >
+                        {saveStatus}
+                      </span>
+                    )}
+                  </div>
+                  <div className="order-1 flex flex-col gap-2 sm:order-2 sm:flex-row">
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        setProfileLoading(true);
+                        setProfileError('');
+                        try {
+                          const response = await fetch('/api/profile', { credentials: 'include' });
+                          const data = await response.json();
+                          if (!response.ok) {
+                            throw new Error(data.error || 'Failed to reset');
+                          }
+                          setProfile({
+                            name: data.data?.name || '',
+                            email: data.data?.email || '',
+                            phone: data.data?.phone || '',
+                            profession: data.data?.profession || 'astrology',
+                            profession_request: data.data?.profession_request || '',
+                            profession_requested_at: data.data?.profession_requested_at || null,
                           });
-                          const photoData = await photoResponse.json().catch(() => ({}));
-                          if (!photoResponse.ok) {
-                            throw new Error(photoData.error || 'Failed to upload photo.');
-                          }
-                          if (photoData?.url) {
-                            setProfilePhotoPreview(photoData.url);
-                          }
+                          setProfessionRequest(
+                            data.data?.profession_request || data.data?.profession || 'astrology'
+                          );
                           setProfilePhoto(null);
+                          setProfilePhotoPreview(data.data?.profile_photo_url || null);
+                          setSaveStatus('');
+                        } catch (error) {
+                          setProfileError(error.message);
+                        } finally {
+                          setProfileLoading(false);
                         }
-                        const response = await fetch('/api/profile', {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          credentials: 'include',
-                          body: JSON.stringify({
-                            name: profile.name,
-                            email: profile.email,
-                            ...(user?.admin_tier === 'super_admin'
-                              ? { profession: profile.profession }
-                              : {}),
-                          }),
-                        });
-                        const contentType = response.headers.get('content-type') || '';
-                        if (!contentType.includes('application/json')) {
-                          const text = await response.text();
-                          throw new Error(text || 'Unexpected server response');
+                      }}
+                      disabled={profileLoading}
+                      className="w-full sm:w-auto"
+                    >
+                      Reset
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={async () => {
+                        try {
+                          setSaveStatus('');
+                          if (profilePhoto) {
+                            const formData = new FormData();
+                            formData.append('photo', profilePhoto);
+                            const photoResponse = await fetch('/api/profile/photo', {
+                              method: 'POST',
+                              body: formData,
+                            });
+                            const photoData = await photoResponse.json().catch(() => ({}));
+                            if (!photoResponse.ok) {
+                              throw new Error(photoData.error || 'Failed to upload photo.');
+                            }
+                            if (photoData?.url) {
+                              setProfilePhotoPreview(photoData.url);
+                            }
+                            setProfilePhoto(null);
+                          }
+                          const response = await fetch('/api/profile', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                              name: profile.name,
+                              email: profile.email,
+                              ...(user?.admin_tier === 'super_admin'
+                                ? { profession: profile.profession }
+                                : {}),
+                            }),
+                          });
+                          const contentType = response.headers.get('content-type') || '';
+                          if (!contentType.includes('application/json')) {
+                            const text = await response.text();
+                            throw new Error(text || 'Unexpected server response');
+                          }
+                          const data = await response.json();
+                          if (!response.ok) {
+                            throw new Error(data.error || 'Failed to save');
+                          }
+                          setProfile({
+                            name: data.data?.name || '',
+                            email: data.data?.email || '',
+                            phone: data.data?.phone || '',
+                            profession: data.data?.profession || 'astrology',
+                            profession_request: data.data?.profession_request || '',
+                            profession_requested_at: data.data?.profession_requested_at || null,
+                          });
+                          setProfessionRequest(
+                            data.data?.profession_request || data.data?.profession || 'astrology'
+                          );
+                          await refresh();
+                          setSaveStatus('Profile updated.');
+                          setTimeout(() => setSaveStatus(''), 2000);
+                        } catch (error) {
+                          console.error('Failed to save profile:', error);
+                          setSaveStatus(error.message);
                         }
-                        const data = await response.json();
-                        if (!response.ok) {
-                          throw new Error(data.error || 'Failed to save');
-                        }
-                        setProfile({
-                          name: data.data?.name || '',
-                          email: data.data?.email || '',
-                          phone: data.data?.phone || '',
-                          profession: data.data?.profession || 'astrology',
-                          profession_request: data.data?.profession_request || '',
-                          profession_requested_at: data.data?.profession_requested_at || null,
-                        });
-                        setProfessionRequest(
-                          data.data?.profession_request || data.data?.profession || 'astrology'
-                        );
-                        await refresh();
-                        setSaveStatus('Profile updated.');
-                        setTimeout(() => setSaveStatus(''), 2000);
-                      } catch (error) {
-                        console.error('Failed to save profile:', error);
-                        setSaveStatus(error.message);
-                      }
-                    }}
-                    disabled={profileLoading}
-                  >
-                    Save Changes
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      setProfileLoading(true);
-                      setProfileError('');
-                      try {
-                        const response = await fetch('/api/profile');
-                        const data = await response.json();
-                        if (!response.ok) {
-                          throw new Error(data.error || 'Failed to reset');
-                        }
-                        setProfile({
-                          name: data.data?.name || '',
-                          email: data.data?.email || '',
-                          phone: data.data?.phone || '',
-                        });
-                        setProfilePhoto(null);
-                        setProfilePhotoPreview(null);
-                        setSaveStatus('');
-                      } catch (error) {
-                        setProfileError(error.message);
-                      } finally {
-                        setProfileLoading(false);
-                      }
-                    }}
-                    disabled={profileLoading}
-                  >
-                    Reset
-                  </Button>
-                  {saveStatus && (
-                    <span className={`text-sm font-semibold ${saveStatus.includes('Failed') || saveStatus.includes('error') ? 'text-red-600' : 'text-green-600'}`}>
-                      {saveStatus}
-                    </span>
-                  )}
+                      }}
+                      disabled={profileLoading}
+                      className="w-full sm:w-auto"
+                    >
+                      Save Changes
+                    </Button>
+                  </div>
                 </div>
               </div>
             </Card>
@@ -741,52 +812,55 @@ export default function SettingsPage() {
 
           {/* Appearance Settings */}
           {activeTab === 'appearance' && (
-            <Card>
-              <h2 className="text-2xl font-bold text-aa-dark-blue mb-6">Appearance</h2>
+            <Card className="border border-white/70 bg-white/90 backdrop-blur">
+              <div className="mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-aa-dark-blue">Appearance</h2>
+                <p className="mt-1 text-sm text-aa-gray">
+                  Personalize your workspace theme and accent.
+                </p>
+              </div>
               <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-semibold text-aa-text-dark mb-3">Theme</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+                  <label className="mb-3 block text-xs uppercase tracking-wide text-aa-gray">Theme</label>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <button
                       type="button"
                       onClick={() => handleThemeChange('light')}
-                      className={`p-4 border-2 rounded-lg text-left ${
+                      className={`rounded-2xl border-2 p-4 text-left transition ${
                         theme === 'light'
-                          ? 'border-aa-orange bg-white'
-                          : 'border-gray-200 bg-white hover:border-aa-orange'
+                          ? 'border-aa-orange bg-aa-orange/5 shadow-sm'
+                          : 'border-gray-200 bg-white hover:border-aa-orange/50'
                       }`}
                     >
-                      <div className="w-full h-24 bg-gradient-to-br from-aa-orange to-aa-dark-blue rounded-lg mb-3"></div>
-                      <p className="font-semibold text-aa-text-dark">Default Theme</p>
-                      {theme === 'light' ? (
-                        <Badge variant="orange" className="mt-2">Active</Badge>
-                      ) : (
-                        <Badge variant="default" className="mt-2">Use</Badge>
-                      )}
+                      <div className="mb-3 h-24 rounded-xl border border-white/70 bg-[linear-gradient(130deg,_#ffd4b0_0%,_#ffffff_50%,_#dbeafe_100%)]" />
+                      <p className="font-semibold text-aa-text-dark">Light Theme</p>
+                      <p className="mt-1 text-xs text-aa-gray">Best for daytime and brighter displays.</p>
+                      <Badge variant={theme === 'light' ? 'orange' : 'default'} className="mt-3">
+                        {theme === 'light' ? 'Active' : 'Use'}
+                      </Badge>
                     </button>
                     <button
                       type="button"
                       onClick={() => handleThemeChange('dark')}
-                      className={`p-4 border-2 rounded-lg text-left ${
+                      className={`rounded-2xl border-2 p-4 text-left transition ${
                         theme === 'dark'
-                          ? 'border-aa-orange bg-white'
-                          : 'border-gray-200 bg-white hover:border-aa-orange'
+                          ? 'border-aa-orange bg-aa-orange/5 shadow-sm'
+                          : 'border-gray-200 bg-white hover:border-aa-orange/50'
                       }`}
                     >
-                      <div className="w-full h-24 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg mb-3"></div>
+                      <div className="mb-3 h-24 rounded-xl border border-slate-700/70 bg-[linear-gradient(130deg,_#0f172a_0%,_#1e293b_52%,_#334155_100%)]" />
                       <p className="font-semibold text-aa-text-dark">Dark Theme</p>
-                      {theme === 'dark' ? (
-                        <Badge variant="orange" className="mt-2">Active</Badge>
-                      ) : (
-                        <Badge variant="default" className="mt-2">Use</Badge>
-                      )}
+                      <p className="mt-1 text-xs text-aa-gray">Reduced glare for low-light environments.</p>
+                      <Badge variant={theme === 'dark' ? 'orange' : 'default'} className="mt-3">
+                        {theme === 'dark' ? 'Active' : 'Use'}
+                      </Badge>
                     </button>
                   </div>
-                </div>
+                </section>
 
-                <div>
-                  <label className="block text-sm font-semibold text-aa-text-dark mb-3">Accent Color</label>
-                  <div className="flex flex-wrap gap-3">
+                <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+                  <label className="mb-3 block text-xs uppercase tracking-wide text-aa-gray">Accent Color</label>
+                  <div className="grid grid-cols-4 gap-3 sm:grid-cols-6 md:grid-cols-8">
                     {ACCENT_COLORS.map((color) => {
                       const isActive =
                         accentColor?.toUpperCase() === color.toUpperCase();
@@ -797,15 +871,15 @@ export default function SettingsPage() {
                           aria-pressed={isActive}
                           title={`Set accent color ${color}`}
                           onClick={() => handleAccentChange(color)}
-                          className={`relative w-12 h-12 rounded-lg border-2 ${
+                          className={`group relative flex h-12 w-full items-center justify-center rounded-xl border-2 transition ${
                             isActive
                               ? 'border-aa-dark-blue ring-2 ring-aa-orange/30'
-                              : 'border-gray-200 hover:border-aa-dark-blue'
+                              : 'border-gray-200 hover:border-aa-dark-blue/50'
                           }`}
                           style={{ backgroundColor: color }}
                         >
                           {isActive && (
-                            <span className="absolute inset-0 flex items-center justify-center text-white text-sm">
+                            <span className="text-sm text-white drop-shadow">
                               <FontAwesomeIcon icon={faCheck} />
                             </span>
                           )}
@@ -813,18 +887,24 @@ export default function SettingsPage() {
                       );
                     })}
                   </div>
-                </div>
+                </section>
               </div>
             </Card>
           )}
 
           {/* WhatsApp Settings */}
           {activeTab === 'whatsapp' && (
-            <Card>
-              <h2 className="text-2xl font-bold text-aa-dark-blue mb-6">WhatsApp Configuration</h2>
-              <div className="space-y-6">
+            <Card className="border border-white/70 bg-white/90 backdrop-blur">
+              <div className="mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-aa-dark-blue">WhatsApp Configuration</h2>
+                <p className="mt-1 text-sm text-aa-gray">
+                  Connect your WhatsApp account to sync chats inside inbox.
+                </p>
+              </div>
+
+              <div className="space-y-5">
                 <div
-                  className={`p-6 border-2 rounded-lg ${
+                  className={`rounded-2xl border p-4 sm:p-5 ${
                     whatsappTone === 'green'
                       ? 'bg-green-50 border-green-200'
                       : whatsappTone === 'amber'
@@ -832,103 +912,126 @@ export default function SettingsPage() {
                       : 'bg-red-50 border-red-200'
                   }`}
                 >
-                  <div className="flex items-center gap-3 mb-2">
-                    <div
-                      className={`w-3 h-3 rounded-full ${
-                        whatsappTone === 'green'
-                          ? 'bg-green-500 animate-pulse'
-                          : whatsappTone === 'amber'
-                          ? 'bg-amber-500 animate-pulse'
-                          : 'bg-red-500'
-                      }`}
-                    ></div>
-                    <span
-                      className={`font-semibold ${
-                        whatsappTone === 'green'
-                          ? 'text-green-700'
-                          : whatsappTone === 'amber'
-                          ? 'text-amber-700'
-                          : 'text-red-700'
-                      }`}
-                    >
-                      {whatsappStatusLabel}
-                    </span>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`h-3 w-3 rounded-full ${
+                          whatsappTone === 'green'
+                            ? 'bg-green-500 animate-pulse'
+                            : whatsappTone === 'amber'
+                            ? 'bg-amber-500 animate-pulse'
+                            : 'bg-red-500'
+                        }`}
+                      />
+                      <span
+                        className={`font-semibold ${
+                          whatsappTone === 'green'
+                            ? 'text-green-700'
+                            : whatsappTone === 'amber'
+                            ? 'text-amber-700'
+                            : 'text-red-700'
+                        }`}
+                      >
+                        {whatsappStatusLabel}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        variant="primary"
+                        onClick={handleStartWhatsApp}
+                        disabled={whatsappConnected || whatsappStatus === 'starting'}
+                        className="w-full sm:w-auto"
+                      >
+                        {whatsappConnected
+                          ? 'Configured'
+                          : whatsappStatus === 'starting'
+                          ? 'Starting...'
+                          : 'Connect WhatsApp'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full border-red-600 text-red-600 hover:bg-red-50 sm:w-auto"
+                        onClick={handleDisconnectWhatsApp}
+                        disabled={!canDisconnect}
+                      >
+                        Disconnect
+                      </Button>
+                    </div>
                   </div>
                   <p
-                    className={`text-sm ${
+                    className={`mt-3 text-sm ${
                       whatsappTone === 'green'
-                        ? 'text-green-600'
+                        ? 'text-green-700'
                         : whatsappTone === 'amber'
-                        ? 'text-amber-600'
-                        : 'text-red-600'
+                        ? 'text-amber-700'
+                        : 'text-red-700'
                     }`}
                   >
                     {whatsappStatusMessage}
                   </p>
                 </div>
 
-                {!whatsappConnected && whatsappQr && (
-                  <div className="flex flex-col items-center gap-3 p-6 border-2 border-dashed border-gray-200 rounded-lg bg-white">
-                    <img
-                      key={whatsappQrVersion}
-                      src={whatsappQr}
-                      alt="WhatsApp QR Code"
-                      className="w-56 h-56"
-                    />
-                    <p className="text-sm text-aa-gray text-center">
-                      Open WhatsApp on your phone → Linked Devices → Link a device
-                    </p>
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+                    <p className="text-xs uppercase tracking-wide text-aa-gray">Business Profile</p>
+                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Input
+                        label="Phone Number"
+                        value={whatsappConfig.phone}
+                        onChange={(event) =>
+                          setWhatsappConfig((prev) => ({ ...prev, phone: event.target.value }))
+                        }
+                        placeholder="Not connected"
+                        disabled
+                      />
+                      <Input
+                        label="Business Name"
+                        value={whatsappConfig.businessName}
+                        onChange={(event) =>
+                          setWhatsappConfig((prev) => ({
+                            ...prev,
+                            businessName: event.target.value,
+                          }))
+                        }
+                        placeholder="Not connected"
+                        disabled
+                      />
+                      <Input
+                        label="Business Category"
+                        value={whatsappConfig.category}
+                        disabled
+                        className="sm:col-span-2"
+                      />
+                    </div>
                   </div>
-                )}
+
+                  <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-4 sm:p-5">
+                    <p className="text-xs uppercase tracking-wide text-aa-gray">QR Pairing</p>
+                    {!whatsappConnected && whatsappQr ? (
+                      <div className="mt-3 flex flex-col items-center gap-3">
+                        <img
+                          key={whatsappQrVersion}
+                          src={whatsappQr}
+                          alt="WhatsApp QR Code"
+                          className="h-52 w-52 max-w-full rounded-xl border border-gray-200 bg-white p-2"
+                        />
+                        <p className="text-center text-xs text-aa-gray">
+                          WhatsApp &gt; Linked Devices &gt; Link a device
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="mt-3 rounded-xl bg-gray-50 px-4 py-10 text-center text-sm text-aa-gray">
+                        QR will appear here when connection starts.
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 {whatsappActionStatus && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {whatsappActionStatus}
                   </div>
                 )}
-
-                <Input
-                  label="Phone Number"
-                  value={whatsappConfig.phone}
-                  onChange={(event) => setWhatsappConfig((prev) => ({ ...prev, phone: event.target.value }))}
-                  placeholder="Not connected"
-                  disabled
-                />
-                <Input
-                  label="Business Name"
-                  value={whatsappConfig.businessName}
-                  onChange={(event) => setWhatsappConfig((prev) => ({ ...prev, businessName: event.target.value }))}
-                  placeholder="Not connected"
-                  disabled
-                />
-                <Input
-                  label="Business Category"
-                  value={whatsappConfig.category}
-                  disabled
-                />
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button
-                    variant="primary"
-                    onClick={handleStartWhatsApp}
-                    disabled={whatsappConnected || whatsappStatus === 'starting'}
-                    className="w-full sm:w-auto"
-                  >
-                    {whatsappConnected
-                      ? 'Configured'
-                      : whatsappStatus === 'starting'
-                      ? 'Starting...'
-                      : 'Connect WhatsApp'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="text-red-600 border-red-600 hover:bg-red-50 w-full sm:w-auto"
-                    onClick={handleDisconnectWhatsApp}
-                    disabled={!canDisconnect}
-                  >
-                    Disconnect
-                  </Button>
-                </div>
               </div>
             </Card>
           )}
@@ -968,12 +1071,19 @@ export default function SettingsPage() {
 
           {/* Security Settings */}
           {activeTab === 'security' && (
-            <Card>
-              <h2 className="text-2xl font-bold text-aa-dark-blue mb-6">Security Settings</h2>
-              <div className="space-y-6">
-                <div>
-                  <h3 className="font-semibold text-aa-text-dark mb-4">Change Password</h3>
-                  <div className="space-y-4">
+            <Card className="border border-white/70 bg-white/90 backdrop-blur">
+              <div className="mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-aa-dark-blue">Security Settings</h2>
+                <p className="mt-1 text-sm text-aa-gray">
+                  Manage password and active access to your account.
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+                  <h3 className="text-base font-semibold text-aa-text-dark">Change Password</h3>
+                  <p className="mt-1 text-xs text-aa-gray">Use at least 8 characters.</p>
+                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                     <Input
                       label="Current Password"
                       type="password"
@@ -981,6 +1091,7 @@ export default function SettingsPage() {
                       value={passwordForm.current}
                       onChange={updatePasswordField('current')}
                       disabled={passwordLoading}
+                      className="md:col-span-2"
                     />
                     <Input
                       label="New Password"
@@ -998,83 +1109,99 @@ export default function SettingsPage() {
                       onChange={updatePasswordField('confirm')}
                       disabled={passwordLoading}
                     />
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                      <Button
-                        variant="primary"
-                        onClick={async () => {
-                          setPasswordStatus('');
-                          if (!passwordForm.next || passwordForm.next.length < 8) {
-                            setPasswordStatus('New password must be at least 8 characters.');
-                            return;
-                          }
-                          if (passwordForm.next !== passwordForm.confirm) {
-                            setPasswordStatus('Passwords do not match.');
-                            return;
-                          }
-                          setPasswordLoading(true);
-                          try {
-                            const response = await fetch('/api/profile/password', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              credentials: 'include',
-                              body: JSON.stringify({
-                                currentPassword: passwordForm.current,
-                                newPassword: passwordForm.next,
-                              }),
-                            });
-                            const data = await response.json();
-                            if (!response.ok) {
-                              throw new Error(data.error || 'Failed to update password.');
-                            }
-                            setPasswordForm({ current: '', next: '', confirm: '' });
-                            setPasswordStatus('Password updated.');
-                          } catch (error) {
-                            setPasswordStatus(error.message);
-                          } finally {
-                            setPasswordLoading(false);
-                          }
-                        }}
-                        disabled={passwordLoading}
-                      >
-                        {passwordLoading ? 'Updating...' : 'Update Password'}
-                      </Button>
-                      {passwordStatus && (
-                        <span className={`text-sm font-semibold ${passwordStatus.includes('updated') ? 'text-green-600' : 'text-red-600'}`}>
-                          {passwordStatus}
-                        </span>
-                      )}
-                    </div>
                   </div>
-                </div>
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <Button
+                      variant="primary"
+                      onClick={async () => {
+                        setPasswordStatus('');
+                        if (!passwordForm.next || passwordForm.next.length < 8) {
+                          setPasswordStatus('New password must be at least 8 characters.');
+                          return;
+                        }
+                        if (passwordForm.next !== passwordForm.confirm) {
+                          setPasswordStatus('Passwords do not match.');
+                          return;
+                        }
+                        setPasswordLoading(true);
+                        try {
+                          const response = await fetch('/api/profile/password', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                              currentPassword: passwordForm.current,
+                              newPassword: passwordForm.next,
+                            }),
+                          });
+                          const data = await response.json();
+                          if (!response.ok) {
+                            throw new Error(data.error || 'Failed to update password.');
+                          }
+                          setPasswordForm({ current: '', next: '', confirm: '' });
+                          setPasswordStatus('Password updated.');
+                        } catch (error) {
+                          setPasswordStatus(error.message);
+                        } finally {
+                          setPasswordLoading(false);
+                        }
+                      }}
+                      disabled={passwordLoading}
+                      className="w-full sm:w-auto"
+                    >
+                      {passwordLoading ? 'Updating...' : 'Update Password'}
+                    </Button>
+                    {passwordStatus && (
+                      <span
+                        className={`text-sm font-semibold ${
+                          passwordStatus.includes('updated') ? 'text-green-600' : 'text-red-600'
+                        }`}
+                      >
+                        {passwordStatus}
+                      </span>
+                    )}
+                  </div>
+                </section>
 
-                <div className="pt-6 border-t border-gray-200">
-                  <h3 className="font-semibold text-aa-text-dark mb-4">Two-Factor Authentication</h3>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-semibold text-aa-text-dark">Enable 2FA</p>
-                        <p className="text-sm text-aa-gray mt-1">Add an extra layer of security to your account</p>
-                      </div>
-                      <Button variant="outline">Enable</Button>
+                <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+                  <h3 className="text-base font-semibold text-aa-text-dark">Two-Factor Authentication</h3>
+                  <div className="mt-3 flex flex-col gap-3 rounded-xl bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-semibold text-aa-text-dark">Enable 2FA</p>
+                      <p className="mt-1 text-sm text-aa-gray">
+                        Add an extra layer of security to your account.
+                      </p>
                     </div>
-                </div>
+                    <Button variant="outline" className="w-full sm:w-auto">
+                      Enable
+                    </Button>
+                  </div>
+                </section>
 
-                <div className="pt-6 border-t border-gray-200">
-                  <h3 className="font-semibold text-aa-text-dark mb-4">Active Sessions</h3>
-                  <div className="space-y-3">
+                <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+                  <h3 className="text-base font-semibold text-aa-text-dark">Active Sessions</h3>
+                  <div className="mt-3 space-y-3">
                     {[
                       { device: 'Chrome on Windows', location: 'Mumbai, India', time: 'Active now' },
                       { device: 'Safari on iPhone', location: 'Delhi, India', time: '2 hours ago' }
                     ].map((session, idx) => (
-                      <div key={idx} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 border-2 border-gray-200 rounded-lg">
-                        <div>
+                      <div
+                        key={idx}
+                        className="flex flex-col gap-3 rounded-xl border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
                           <p className="font-semibold text-aa-text-dark">{session.device}</p>
-                          <p className="text-sm text-aa-gray">{session.location} • {session.time}</p>
+                          <p className="text-sm text-aa-gray">
+                            {session.location} - {session.time}
+                          </p>
                         </div>
-                        <Button variant="ghost" className="text-red-600">Revoke</Button>
+                        <Button variant="ghost" className="w-full text-red-600 sm:w-auto">
+                          Revoke
+                        </Button>
                       </div>
                     ))}
                   </div>
-                </div>
+                </section>
               </div>
             </Card>
           )}

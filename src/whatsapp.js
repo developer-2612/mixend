@@ -16,6 +16,12 @@ import {
   startOfDay,
 } from "date-fns";
 import { db } from "./db.js";
+import {
+  sanitizeEmail,
+  sanitizeNameUpper,
+  sanitizePhone,
+  sanitizeText,
+} from "../lib/sanitize.js";
 
 const { Client, LocalAuth } = pkg;
 export const whatsappEvents = new EventEmitter();
@@ -1406,7 +1412,20 @@ const AUTOMATION_PROFILES = {
 const getAutomationProfile = (profession) =>
   AUTOMATION_PROFILES[profession] || AUTOMATION_PROFILES[DEFAULT_PROFESSION];
 
-const ALLOWED_AUTOMATION_PROFESSIONS = new Set(["restaurant", "salon"]);
+const parseAllowedAutomationProfessions = () => {
+  const raw = String(process.env.WHATSAPP_AUTOMATION_PROFESSIONS || "").trim();
+  if (!raw) {
+    return new Set(Object.keys(AUTOMATION_PROFILES));
+  }
+  return new Set(
+    raw
+      .split(",")
+      .map((entry) => entry.trim().toLowerCase())
+      .filter((entry) => Boolean(AUTOMATION_PROFILES[entry]))
+  );
+};
+
+const ALLOWED_AUTOMATION_PROFESSIONS = parseAllowedAutomationProfessions();
 
 const textHasAny = (input, keywords) => keywords.some((word) => input.includes(word));
 
@@ -1431,24 +1450,38 @@ const isMenuCommand = (input, rawText) => {
 
 const buildRequirementSummary = ({ user, phone }) => {
   const lines = [];
-  const displayName = user.name || user.data.name || "N/A";
-  const email = user.email || user.data.email || "N/A";
+  const displayName = sanitizeNameUpper(user.name || user.data.name) || "N/A";
+  const email = sanitizeEmail(user.email || user.data.email) || "N/A";
+  const normalizedPhone = sanitizePhone(phone) || "N/A";
+  const altContact = sanitizePhone(user.data.altContact) || "N/A";
 
   lines.push(`Name: ${displayName}`);
-  lines.push(`Phone: ${phone}`);
+  lines.push(`Phone: ${normalizedPhone}`);
   lines.push(`Email: ${email}`);
 
-  if (user.data.reason) lines.push(`Request Type: ${user.data.reason}`);
-  if (user.data.serviceType) lines.push(`Service: ${user.data.serviceType}`);
-  if (user.data.productType) lines.push(`Product: ${user.data.productType}`);
-  if (user.data.serviceDetails) lines.push(`Service Details: ${user.data.serviceDetails}`);
-  if (user.data.productDetails) lines.push(`Product Details: ${user.data.productDetails}`);
-  if (user.data.address) lines.push(`Address: ${user.data.address}`);
-  if (user.data.altContact) lines.push(`Alt Contact: ${user.data.altContact}`);
-  if (user.data.executiveMessage) lines.push(`Message: ${user.data.executiveMessage}`);
-  if (user.data.appointmentType) lines.push(`Appointment Type: ${user.data.appointmentType}`);
-  if (user.data.appointmentAt) lines.push(`Appointment At: ${user.data.appointmentAt}`);
-  if (user.data.lastUserMessage) lines.push(`Last User Message: ${user.data.lastUserMessage}`);
+  if (user.data.reason) lines.push(`Request Type: ${sanitizeText(user.data.reason, 120)}`);
+  if (user.data.serviceType) lines.push(`Service: ${sanitizeText(user.data.serviceType, 200)}`);
+  if (user.data.productType) lines.push(`Product: ${sanitizeText(user.data.productType, 200)}`);
+  if (user.data.serviceDetails) {
+    lines.push(`Service Details: ${sanitizeText(user.data.serviceDetails, 800)}`);
+  }
+  if (user.data.productDetails) {
+    lines.push(`Product Details: ${sanitizeText(user.data.productDetails, 800)}`);
+  }
+  if (user.data.address) lines.push(`Address: ${sanitizeText(user.data.address, 500)}`);
+  if (user.data.altContact) lines.push(`Alt Contact: ${altContact}`);
+  if (user.data.executiveMessage) {
+    lines.push(`Message: ${sanitizeText(user.data.executiveMessage, 800)}`);
+  }
+  if (user.data.appointmentType) {
+    lines.push(`Appointment Type: ${sanitizeText(user.data.appointmentType, 150)}`);
+  }
+  if (user.data.appointmentAt) {
+    lines.push(`Appointment At: ${sanitizeText(user.data.appointmentAt, 150)}`);
+  }
+  if (user.data.lastUserMessage) {
+    lines.push(`Last User Message: ${sanitizeText(user.data.lastUserMessage, 800)}`);
+  }
 
   return lines.join("\n");
 };
@@ -1733,12 +1766,13 @@ const startAppointmentFlow = async ({ user, sendMessage, appointmentType }) => {
 };
 
 const logMessage = async ({ userId, adminId, text, type }) => {
-  if (!userId || !adminId || !text) return null;
+  const sanitizedText = sanitizeText(text, 4000);
+  if (!userId || !adminId || !sanitizedText) return null;
   const [rows] = await db.query(
     `INSERT INTO messages (user_id, admin_id, message_text, message_type, status)
      VALUES (?, ?, ?, ?, 'delivered')
      RETURNING id, created_at`,
-    [userId, adminId, text, type]
+    [userId, adminId, sanitizedText, type]
   );
   return rows?.[0] || null;
 };
@@ -1830,8 +1864,10 @@ const maybeFinalizeLead = async ({
   users,
   sendMessage,
 }) => {
-  const hasName = Boolean(user.name || user.data.name);
-  const hasEmail = Boolean(user.email || user.data.email);
+  const hasName = Boolean(sanitizeNameUpper(user.name || user.data.name));
+  const normalizedEmail = sanitizeEmail(user.email || user.data.email);
+  const hasEmail = Boolean(normalizedEmail);
+  const emailHandled = hasEmail || user.data.emailChecked === true;
 
   if (!hasName) {
     user.data.pendingFinalize = true;
@@ -1839,11 +1875,16 @@ const maybeFinalizeLead = async ({
     return;
   }
 
-  if (!hasEmail) {
+  if (!emailHandled) {
     user.data.pendingFinalize = true;
     await promptForEmail({ user, sendMessage });
     return;
   }
+
+  user.name = sanitizeNameUpper(user.name || user.data.name);
+  user.data.name = user.name;
+  user.email = normalizedEmail;
+  user.data.email = normalizedEmail;
 
   user.data.message = buildRequirementSummary({ user, phone });
   await finalizeLead({ user, from, phone, assignedAdminId, client, users, sendMessage });
@@ -1853,8 +1894,11 @@ const savePartialLead = async ({ user, phone, assignedAdminId }) => {
   const adminId = user.assignedAdminId || assignedAdminId;
   if (!user.clientId) return;
 
-  const summary = buildRequirementSummary({ user, phone });
-  const category = user.data.reason ? `Partial - ${user.data.reason}` : "Partial";
+  const summary = sanitizeText(buildRequirementSummary({ user, phone }), 4000);
+  const category = sanitizeText(
+    user.data.reason ? `Partial - ${user.data.reason}` : "Partial",
+    120
+  );
 
   await db.query(
     `INSERT INTO leads (user_id, requirement_text, category, status)
@@ -2001,26 +2045,35 @@ const finalizeLead = async ({
 }) => {
   let clientId = user.clientId;
   const adminId = user.assignedAdminId || assignedAdminId;
-  const displayName = user.name || user.data.name || "Unknown";
-  const email = user.email || user.data.email || null;
+  const normalizedPhone = sanitizePhone(phone);
+  if (!normalizedPhone) {
+    throw new Error("Invalid phone number for contact.");
+  }
+  const displayName = sanitizeNameUpper(user.name || user.data.name) || "UNKNOWN";
+  const email = sanitizeEmail(user.email || user.data.email);
 
   if (!clientId) {
     const [rows] = await db.query(
       "INSERT INTO contacts (name, phone, email, assigned_admin_id) VALUES (?, ?, ?, ?) RETURNING id",
-      [displayName, phone, email, adminId]
+      [displayName, normalizedPhone, email, adminId]
     );
     clientId = rows[0]?.id || null;
   }
   if (clientId) {
     await db.query(
       "UPDATE contacts SET name = COALESCE(?, name), email = COALESCE(?, email) WHERE id = ?",
-      [displayName !== "Unknown" ? displayName : null, email, clientId]
+      [displayName !== "UNKNOWN" ? displayName : null, email, clientId]
     );
   }
 
-  const requirementText = user.data.message || buildRequirementSummary({ user, phone });
-  const requirementCategory =
-    user.data.serviceType || user.data.productType || user.data.reason || "General";
+  const requirementText = sanitizeText(
+    user.data.message || buildRequirementSummary({ user, phone: normalizedPhone }),
+    4000
+  );
+  const requirementCategory = sanitizeText(
+    user.data.serviceType || user.data.productType || user.data.reason || "General",
+    120
+  );
 
   await db.query(
     `INSERT INTO leads (user_id, requirement_text, category, status)
@@ -2065,11 +2118,12 @@ const handleIncomingMessage = async ({
     const sender = from || message?.from;
     if (!sender || sender.endsWith("@g.us")) return;
 
-    const messageText = String(text ?? message?.body ?? "").trim();
+    const messageText = sanitizeText(text ?? message?.body ?? "", 4000);
     if (!messageText) return;
 
     const lower = messageText.toLowerCase();
-    const phone = sender.replace("@c.us", "");
+    const phone = sanitizePhone(sender.replace("@c.us", ""));
+    if (!phone) return;
 
     /* ===============================
        🔍 CHECK USER IN DB
@@ -2081,12 +2135,21 @@ const handleIncomingMessage = async ({
     }
 
     const [rows] = await db.query(
-      "SELECT id, name, email, assigned_admin_id FROM contacts WHERE phone = ?",
-      [phone]
+      `SELECT id, name, email, assigned_admin_id
+       FROM contacts
+       WHERE phone = ? OR regexp_replace(phone, '\\D', '', 'g') = ?
+       LIMIT 1`,
+      [phone, phone]
     );
 
     let isReturningUser = rows.length > 0;
-    let existingUser = isReturningUser ? rows[0] : null;
+    let existingUser = isReturningUser
+      ? {
+          ...rows[0],
+          name: sanitizeNameUpper(rows[0]?.name),
+          email: sanitizeEmail(rows[0]?.email),
+        }
+      : null;
     let assignedAdminId = existingUser?.assigned_admin_id || activeAdminId;
     if (existingUser && existingUser.assigned_admin_id !== activeAdminId) {
       assignedAdminId = activeAdminId;
@@ -2109,13 +2172,20 @@ const handleIncomingMessage = async ({
           assigned_admin_id: assignedAdminId,
         };
       } catch (err) {
-        if (err.code === "ER_DUP_ENTRY") {
+        if (err.code === "ER_DUP_ENTRY" || err.code === "23505") {
           const [freshRows] = await db.query(
-            "SELECT id, name, email, assigned_admin_id FROM contacts WHERE phone = ?",
-            [phone]
+            `SELECT id, name, email, assigned_admin_id
+             FROM contacts
+             WHERE phone = ? OR regexp_replace(phone, '\\D', '', 'g') = ?
+             LIMIT 1`,
+            [phone, phone]
           );
           if (freshRows.length > 0) {
-            existingUser = freshRows[0];
+            existingUser = {
+              ...freshRows[0],
+              name: sanitizeNameUpper(freshRows[0]?.name),
+              email: sanitizeEmail(freshRows[0]?.email),
+            };
             isReturningUser = true;
           }
         } else {
@@ -2174,16 +2244,6 @@ const handleIncomingMessage = async ({
     const automationAllowed = ALLOWED_AUTOMATION_PROFESSIONS.has(
       adminProfile?.profession
     );
-    if (!automationAllowed) {
-      return;
-    }
-
-    if (lastOutgoingText) {
-      const inferredStep = inferStepFromOutgoing(lastOutgoingText, automation);
-      if (inferredStep && (user.step === "MENU" || user.step === "START")) {
-        user.step = inferredStep;
-      }
-    }
 
     if (aiSettings?.ai_enabled) {
       const aiReply = await fetchAIReply({
@@ -2197,6 +2257,17 @@ const handleIncomingMessage = async ({
         await sendMessage("Thanks for your message. Our team will get back to you shortly.");
       }
       return;
+    }
+
+    if (!automationAllowed) {
+      return;
+    }
+
+    if (lastOutgoingText) {
+      const inferredStep = inferStepFromOutgoing(lastOutgoingText, automation);
+      if (inferredStep && (user.step === "MENU" || user.step === "START")) {
+        user.step = inferredStep;
+      }
     }
 
     const now = Date.now();
@@ -2631,8 +2702,13 @@ const handleIncomingMessage = async ({
        STEP 3: NAME
        =============================== */
     if (user.step === "ASK_NAME") {
-      user.data.name = messageText;
-      user.name = messageText;
+      const normalizedName = sanitizeNameUpper(messageText);
+      if (!normalizedName) {
+        await sendMessage("Please share a valid name.");
+        return;
+      }
+      user.data.name = normalizedName;
+      user.name = normalizedName;
 
       await maybeFinalizeLead({
         user,
@@ -2650,8 +2726,10 @@ const handleIncomingMessage = async ({
        STEP 4: EMAIL
        =============================== */
     if (user.step === "ASK_EMAIL") {
-      user.data.email = messageText;
-      user.email = messageText;
+      const normalizedEmail = sanitizeEmail(messageText);
+      user.data.email = normalizedEmail;
+      user.email = normalizedEmail;
+      user.data.emailChecked = true;
 
       await maybeFinalizeLead({
         user,
@@ -2745,7 +2823,7 @@ const handleIncomingMessage = async ({
        STEP 5: SERVICE DETAILS
        =============================== */
     if (user.step === "SERVICE_DETAILS") {
-      user.data.serviceDetails = messageText;
+      user.data.serviceDetails = sanitizeText(messageText, 1000);
       user.data.message = buildRequirementSummary({ user, phone });
 
       await maybeFinalizeLead({
@@ -2764,7 +2842,7 @@ const handleIncomingMessage = async ({
        STEP 6: PRODUCT REQUIREMENTS
        =============================== */
     if (user.step === "PRODUCT_REQUIREMENTS") {
-      user.data.productDetails = messageText;
+      user.data.productDetails = sanitizeText(messageText, 1000);
 
       await delay(1000);
       await sendMessage(
@@ -2778,7 +2856,7 @@ const handleIncomingMessage = async ({
        STEP 7: PRODUCT ADDRESS
        =============================== */
     if (user.step === "PRODUCT_ADDRESS") {
-      user.data.address = messageText;
+      user.data.address = sanitizeText(messageText, 600);
 
       await delay(1000);
       await sendMessage("Alternate contact number (optional). If none, reply *NA*.");
@@ -2790,7 +2868,8 @@ const handleIncomingMessage = async ({
        STEP 8: PRODUCT ALT CONTACT
        =============================== */
     if (user.step === "PRODUCT_ALT_CONTACT") {
-      user.data.altContact = messageText;
+      const altContact = sanitizePhone(messageText);
+      user.data.altContact = altContact || "NA";
       user.data.message = buildRequirementSummary({ user, phone });
 
       await maybeFinalizeLead({
@@ -2809,7 +2888,7 @@ const handleIncomingMessage = async ({
        STEP 9: EXECUTIVE MESSAGE
        =============================== */
     if (user.step === "EXECUTIVE_MESSAGE") {
-      user.data.executiveMessage = messageText;
+      user.data.executiveMessage = sanitizeText(messageText, 1000);
       user.data.message = buildRequirementSummary({ user, phone });
 
       await maybeFinalizeLead({
@@ -2890,8 +2969,9 @@ async function recoverPendingMessages(session) {
   if (!session?.state?.isReady) return;
 
   const adminProfile = await getAdminAutomationProfile(adminId);
+  const aiSettings = await getAdminAISettings(adminId);
   const profession = adminProfile?.profession || DEFAULT_PROFESSION;
-  if (!ALLOWED_AUTOMATION_PROFESSIONS.has(profession)) {
+  if (!aiSettings?.ai_enabled && !ALLOWED_AUTOMATION_PROFESSIONS.has(profession)) {
     return;
   }
 

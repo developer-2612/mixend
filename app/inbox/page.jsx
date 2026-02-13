@@ -466,7 +466,10 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_top,_#fff3e6_0%,_#ffffff_45%,_#f3f6ff_100%)]">
+    <div
+      data-testid="inbox-page"
+      className="inbox-page-shell min-h-[calc(100vh-4rem)] bg-[radial-gradient(circle_at_top,_#fff3e6_0%,_#ffffff_45%,_#f3f6ff_100%)]"
+    >
       <div className="w-full px-3 sm:px-4 lg:px-6 py-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
@@ -492,7 +495,7 @@ export default function InboxPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-6">
-          <Card className="border border-white/60 bg-white/80 backdrop-blur">
+          <Card className="inbox-glass-card border border-white/60 bg-white/80 backdrop-blur">
             <p className="text-xs uppercase text-aa-gray">Conversations</p>
             <p className="text-2xl font-bold text-aa-dark-blue mt-2">{stats.uniqueThreads}</p>
             <div className="mt-3 flex items-center gap-2 text-xs text-aa-gray">
@@ -500,7 +503,7 @@ export default function InboxPage() {
               Total active threads
             </div>
           </Card>
-          <Card className="border border-white/60 bg-white/80 backdrop-blur">
+          <Card className="inbox-glass-card border border-white/60 bg-white/80 backdrop-blur">
             <p className="text-xs uppercase text-aa-gray">Unread</p>
             <p className="text-2xl font-bold text-aa-dark-blue mt-2">{stats.unreadMessages}</p>
             <div className="mt-3 flex items-center gap-2 text-xs text-aa-gray">
@@ -508,7 +511,7 @@ export default function InboxPage() {
               Messages to review
             </div>
           </Card>
-          <Card className="border border-white/60 bg-white/80 backdrop-blur">
+          <Card className="inbox-glass-card border border-white/60 bg-white/80 backdrop-blur">
             <p className="text-xs uppercase text-aa-gray">Needs Reply</p>
             <p className="text-2xl font-bold text-aa-dark-blue mt-2">{stats.needsReply}</p>
             <div className="mt-3 flex items-center gap-2 text-xs text-aa-gray">
@@ -516,7 +519,7 @@ export default function InboxPage() {
               Latest incoming unread
             </div>
           </Card>
-          <Card className="border border-white/60 bg-white/80 backdrop-blur">
+          <Card className="inbox-glass-card border border-white/60 bg-white/80 backdrop-blur">
             <p className="text-xs uppercase text-aa-gray">Incoming Today</p>
             <p className="text-2xl font-bold text-aa-dark-blue mt-2">{stats.incomingToday}</p>
             <div className="mt-3 flex items-center gap-2 text-xs text-aa-gray">
@@ -528,7 +531,7 @@ export default function InboxPage() {
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
           <div className={`space-y-4 ${mobileThreadOpen ? 'hidden lg:block' : 'block'}`}>
-            <Card className="border border-white/60 bg-white/90 backdrop-blur">
+            <Card className="inbox-glass-card border border-white/60 bg-white/90 backdrop-blur">
               <div className="relative">
                 <FontAwesomeIcon
                   icon={faMagnifyingGlass}
@@ -539,7 +542,7 @@ export default function InboxPage() {
                   placeholder="Search name, phone, or last message"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 bg-white px-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aa-orange"
+                  className="inbox-field w-full rounded-xl border border-gray-200 bg-white px-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aa-orange"
                 />
               </div>
               <div className="mt-4 space-y-4">
@@ -557,7 +560,7 @@ export default function InboxPage() {
                           }
                           className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
                             active
-                              ? 'bg-aa-dark-blue text-white border-aa-dark-blue'
+                              ? 'inbox-filter-active bg-aa-dark-blue text-white border-aa-dark-blue'
                               : 'border-gray-200 text-aa-gray hover:border-aa-orange hover:text-aa-orange'
                           }`}
                         >
@@ -584,7 +587,7 @@ export default function InboxPage() {
                           }
                           className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                             active
-                              ? 'bg-aa-orange text-white'
+                              ? 'inbox-type-active bg-aa-orange text-white'
                               : 'text-aa-gray hover:text-aa-dark-blue'
                           }`}
                         >
@@ -611,7 +614,7 @@ export default function InboxPage() {
                           }
                           className={`text-xs font-semibold transition ${
                             active
-                              ? 'border-b-2 border-aa-orange text-aa-orange'
+                              ? 'inbox-range-active border-b-2 border-aa-orange text-aa-orange'
                               : 'text-aa-gray hover:text-aa-dark-blue'
                           }`}
                         >
@@ -635,7 +638,7 @@ export default function InboxPage() {
                           }
                           className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs font-semibold transition ${
                             active
-                              ? 'border-aa-orange bg-aa-orange/10 text-aa-dark-blue'
+                              ? 'inbox-sort-active border-aa-orange bg-aa-orange/10 text-aa-dark-blue'
                               : 'border-gray-200 text-aa-gray hover:border-aa-orange hover:text-aa-orange'
                           }`}
                         >
@@ -650,38 +653,38 @@ export default function InboxPage() {
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   onClick={() => setFilters((prev) => ({ ...prev, status: 'all', type: 'all' }))}
-                  className="rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-aa-gray hover:border-aa-orange hover:text-aa-orange"
+                  className="inbox-quick-chip rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-aa-gray hover:border-aa-orange hover:text-aa-orange"
                 >
                   Clear filters
                 </button>
                 <button
                   onClick={() => setFilters((prev) => ({ ...prev, status: 'needs_reply' }))}
-                  className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700"
+                  className="inbox-quick-chip rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700"
                 >
                   Needs reply
                 </button>
                 <button
                   onClick={() => setFilters((prev) => ({ ...prev, status: 'unread' }))}
-                  className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700"
+                  className="inbox-quick-chip rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700"
                 >
                   Unread only
                 </button>
                 <button
                   onClick={() => setFilters((prev) => ({ ...prev, type: 'incoming' }))}
-                  className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700"
+                  className="inbox-quick-chip rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700"
                 >
                   Incoming
                 </button>
               </div>
             </Card>
 
-            <Card className="border border-white/60 bg-white/90 backdrop-blur p-0 sm:p-0 overflow-hidden">
+            <Card className="inbox-glass-card border border-white/60 bg-white/90 backdrop-blur p-0 sm:p-0 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                 <div className="flex items-center gap-2 text-sm font-semibold text-aa-text-dark">
                   <FontAwesomeIcon icon={faFilter} className="text-aa-orange" />
                   Conversations
                 </div>
-                <Badge variant="blue">{threads.length}</Badge>
+                <Badge variant="blue" className="inbox-badge-blue">{threads.length}</Badge>
               </div>
               <div className="max-h-[68vh] sm:max-h-[56vh] lg:max-h-[calc(100vh-20rem)] overflow-y-auto">
                 {threads.length === 0 ? (
@@ -695,12 +698,12 @@ export default function InboxPage() {
                       <button
                         key={thread.user_id}
                         onClick={() => handleSelectThread(thread.user_id)}
-                        className={`w-full text-left px-4 py-4 border-b border-gray-100 hover:bg-aa-orange/5 transition ${
-                          isActive ? 'bg-aa-orange/10' : ''
+                        className={`inbox-thread-item w-full text-left px-4 py-4 border-b border-gray-100 hover:bg-aa-orange/5 transition ${
+                          isActive ? 'inbox-thread-item-active bg-aa-orange/10' : ''
                         }`}
                       >
                         <div className="flex items-start gap-3">
-                          <div className="h-10 w-10 rounded-2xl bg-aa-dark-blue/10 text-aa-dark-blue flex items-center justify-center text-sm font-semibold">
+                          <div className="inbox-avatar h-10 w-10 rounded-2xl bg-aa-dark-blue/10 text-aa-dark-blue flex items-center justify-center text-sm font-semibold">
                             {getInitials(thread.user_name, thread.phone)}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -717,11 +720,18 @@ export default function InboxPage() {
                               {thread.lastMessage?.message_text || 'No message preview'}
                             </p>
                             <div className="mt-2 flex items-center gap-2">
-                              <Badge variant={thread.lastMessage?.message_type === 'incoming' ? 'blue' : 'green'}>
+                              <Badge
+                                variant={thread.lastMessage?.message_type === 'incoming' ? 'blue' : 'green'}
+                                className={
+                                  thread.lastMessage?.message_type === 'incoming'
+                                    ? 'inbox-badge-blue'
+                                    : 'inbox-badge-green'
+                                }
+                              >
                                 {thread.lastMessage?.message_type || 'incoming'}
                               </Badge>
                               {thread.unreadCount > 0 && (
-                                <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-aa-orange text-white">
+                                <span className="inbox-unread-pill px-2 py-0.5 text-xs font-semibold rounded-full bg-aa-orange text-white">
                                   {thread.unreadCount} unread
                                 </span>
                               )}
@@ -750,7 +760,7 @@ export default function InboxPage() {
             </Card>
           </div>
 
-          <Card className={`border border-white/60 bg-white/90 backdrop-blur ${mobileThreadOpen ? 'block' : 'hidden lg:block'}`}>
+          <Card className={`inbox-glass-card border border-white/60 bg-white/90 backdrop-blur ${mobileThreadOpen ? 'block' : 'hidden lg:block'}`}>
             {!selectedThread ? (
               <div className="h-full flex flex-col items-center justify-center text-center py-16">
                 <div className="h-14 w-14 rounded-2xl bg-aa-orange/10 flex items-center justify-center mb-4">
@@ -768,12 +778,12 @@ export default function InboxPage() {
                     <button
                       type="button"
                       onClick={() => setMobileThreadOpen(false)}
-                      className="inline-flex lg:hidden h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-aa-gray"
+                      className="inbox-outline-btn inline-flex lg:hidden h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-aa-gray"
                       aria-label="Back to conversations"
                     >
                       <FontAwesomeIcon icon={faArrowLeft} />
                     </button>
-                    <div className="h-12 w-12 rounded-2xl bg-aa-dark-blue/10 text-aa-dark-blue flex items-center justify-center text-base font-semibold">
+                    <div className="inbox-avatar h-12 w-12 rounded-2xl bg-aa-dark-blue/10 text-aa-dark-blue flex items-center justify-center text-base font-semibold">
                       {getInitials(activeThreadMeta?.user_name, activeThreadMeta?.phone)}
                     </div>
                     <div>
@@ -786,7 +796,7 @@ export default function InboxPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <a
                       href={activeThreadMeta?.phone ? `tel:${activeThreadMeta.phone}` : undefined}
-                      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-aa-gray hover:border-aa-orange hover:text-aa-orange"
+                      className="inbox-outline-btn inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-aa-gray hover:border-aa-orange hover:text-aa-orange"
                     >
                       <FontAwesomeIcon icon={faPhone} />
                       Call
@@ -796,7 +806,7 @@ export default function InboxPage() {
                         if (!activeThreadMeta?.phone) return;
                         navigator.clipboard?.writeText(activeThreadMeta.phone);
                       }}
-                      className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-aa-gray hover:border-aa-orange hover:text-aa-orange"
+                      className="inbox-outline-btn inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-aa-gray hover:border-aa-orange hover:text-aa-orange"
                     >
                       <FontAwesomeIcon icon={faUser} />
                       Copy
@@ -819,7 +829,7 @@ export default function InboxPage() {
                         <div className="flex justify-center">
                           <button
                             onClick={() => loadThreadMessages(selectedThread, { reset: false })}
-                            className="rounded-full border border-gray-200 px-4 py-2 text-xs font-semibold text-aa-gray hover:border-aa-orange hover:text-aa-orange"
+                            className="inbox-outline-btn rounded-full border border-gray-200 px-4 py-2 text-xs font-semibold text-aa-gray hover:border-aa-orange hover:text-aa-orange"
                           >
                             Load earlier messages
                           </button>
@@ -835,10 +845,10 @@ export default function InboxPage() {
                           return (
                             <div key={msg.id} className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
                               <div
-                                className={`max-w-[88%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                                className={`max-w-[90%] sm:max-w-[78%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
                                   isOutgoing
-                                    ? 'bg-aa-dark-blue text-white'
-                                    : 'bg-white border border-gray-100 text-aa-text-dark'
+                                    ? 'inbox-msg-out bg-aa-dark-blue text-white ring-1 ring-white/20'
+                                    : 'inbox-msg-in bg-white border border-gray-200 text-aa-text-dark'
                                 }`}
                               >
                                 <p>{msg.message_text}</p>
@@ -857,7 +867,7 @@ export default function InboxPage() {
                   )}
                 </div>
 
-                <div className="border-t border-gray-100 pt-4">
+                <div className="inbox-reply-panel border-t border-gray-100 pt-4">
                   {whatsappChecked && !whatsappReady && (
                     <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                       WhatsApp is not connected. Go to Settings &gt; WhatsApp and connect before sending messages.
@@ -868,18 +878,23 @@ export default function InboxPage() {
                       )}
                     </div>
                   )}
-                  <div className="flex flex-wrap gap-2 mb-3">
+                  <div className="mb-3">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-aa-gray">
+                      Quick Replies
+                    </p>
+                    <div className="flex flex-wrap gap-2">
                     {QUICK_REPLIES.map((reply) => (
                       <button
                         key={reply.label}
                         onClick={() =>
                           setDraft((prev) => (prev ? `${prev}\n${reply.text}` : reply.text))
                         }
-                        className="rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-aa-gray hover:border-aa-orange hover:text-aa-orange"
+                        className="inbox-quick-chip rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-aa-gray hover:border-aa-orange hover:text-aa-orange"
                       >
                         {reply.label}
                       </button>
                     ))}
+                    </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <div className="flex-1">
@@ -888,7 +903,7 @@ export default function InboxPage() {
                         onChange={(event) => setDraft(event.target.value)}
                         rows={3}
                         placeholder="Type a reply..."
-                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-aa-orange"
+                        className="inbox-field inbox-reply-textarea w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-aa-orange"
                       />
                       {sendError && (
                         <p className="mt-2 text-xs text-red-600">{sendError}</p>
@@ -899,7 +914,7 @@ export default function InboxPage() {
                       onClick={sendMessage}
                       disabled={sending || !draft.trim() || (whatsappChecked && !whatsappReady)}
                       icon={<FontAwesomeIcon icon={faPaperPlane} />}
-                      className="w-full sm:w-auto sm:self-end"
+                      className="inbox-send-btn w-full sm:w-auto sm:self-end"
                     >
                       {sending ? 'Sending...' : 'Send'}
                     </Button>

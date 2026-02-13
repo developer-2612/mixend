@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { signAuthToken } from '../../../../../lib/auth';
 import { getConnection } from '../../../../../lib/db-helpers';
+import { sanitizeEmail, sanitizeNameUpper, sanitizePhone } from '../../../../../lib/sanitize.js';
 
 const STATE_COOKIE = 'oauth_google_state';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -33,8 +34,13 @@ const clearStateCookie = (response) => {
 
 const buildPlaceholderPhone = (provider, subject) => {
   const seed = `${provider}:${subject || crypto.randomBytes(8).toString('hex')}`;
-  const hash = crypto.createHash('sha1').update(seed).digest('hex').slice(0, 18);
-  return `${provider[0]}${hash}`;
+  const hash = crypto.createHash('sha1').update(seed).digest('hex');
+  const numeric = hash
+    .split('')
+    .map((ch) => (parseInt(ch, 16) % 10).toString())
+    .join('')
+    .slice(0, 14);
+  return sanitizePhone(numeric, { min: 10, max: 14 }) || '9000000000';
 };
 
 export async function GET(request) {
@@ -96,15 +102,17 @@ export async function GET(request) {
       throw new Error(profile?.error || 'Failed to fetch user info');
     }
 
-    const email = (profile?.email || '').trim().toLowerCase();
+    const email = sanitizeEmail(profile?.email);
     if (!email) {
       throw new Error('Missing email');
     }
 
     const displayName =
-      profile?.name ||
-      [profile?.given_name, profile?.family_name].filter(Boolean).join(' ') ||
-      'Google User';
+      sanitizeNameUpper(
+        profile?.name ||
+          [profile?.given_name, profile?.family_name].filter(Boolean).join(' ') ||
+          'Google User'
+      ) || 'GOOGLE USER';
 
     const connection = await getConnection();
     try {

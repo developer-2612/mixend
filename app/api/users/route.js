@@ -1,6 +1,7 @@
 import { addUser, getAllUsers, getUserById, getUserByPhone } from '../../../lib/db-helpers';
 import { parsePagination, parseSearch } from '../../../lib/api-utils';
 import { requireAuth } from '../../../lib/auth-server';
+import { sanitizeEmail, sanitizeNameUpper, sanitizePhone } from '../../../lib/sanitize.js';
 
 export async function GET(req) {
   try {
@@ -38,11 +39,11 @@ export async function POST(req) {
   try {
     const authUser = await requireAuth();
     const body = await req.json().catch(() => ({}));
-    const name = String(body?.name || '').trim() || null;
-    const email = String(body?.email || '').trim() || null;
-    const phone = String(body?.phone || '').trim();
+    const name = sanitizeNameUpper(body?.name);
+    const email = sanitizeEmail(body?.email);
+    const phone = sanitizePhone(body?.phone);
     if (!phone) {
-      return Response.json({ success: false, error: 'Phone is required.' }, { status: 400 });
+      return Response.json({ success: false, error: 'Valid phone number is required.' }, { status: 400 });
     }
 
     let userId = null;

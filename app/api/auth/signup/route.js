@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getConnection } from '../../../../lib/db-helpers';
 import { hashPassword, signAuthToken } from '../../../../lib/auth';
+import { sanitizeEmail, sanitizeNameUpper, sanitizePhone } from '../../../../lib/sanitize.js';
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const name = (body.name || '').trim();
-    const email = (body.email || '').trim() || null;
-    const phone = (body.phone || '').trim();
+    const name = sanitizeNameUpper(body.name);
+    const email = sanitizeEmail(body.email);
+    const phone = sanitizePhone(body.phone);
     const password = body.password || '';
     const professionRaw = typeof body.profession === 'string' ? body.profession.trim() : '';
     const allowedProfessions = new Set([
@@ -22,7 +23,7 @@ export async function POST(request) {
 
     if (!name || !phone || !password) {
       return NextResponse.json(
-        { error: 'Name, phone, and password are required' },
+        { error: 'Valid name, phone, and password are required' },
         { status: 400 }
       );
     }
@@ -31,14 +32,18 @@ export async function POST(request) {
 
     try {
       const [existing] = await connection.execute(
-        `SELECT id, phone, email FROM admins WHERE phone = ? OR email = ?`,
-        [phone, email]
+        `SELECT id, phone, email
+         FROM admins
+         WHERE phone = ?
+            OR regexp_replace(phone, '\\D', '', 'g') = ?
+            OR email = ?`,
+        [phone, phone, email]
       );
 
       if (existing.length > 0) {
-        const phoneExists = existing.some((row) => row.phone === phone);
+        const phoneExists = existing.some((row) => sanitizePhone(row.phone) === phone);
         const emailExists = email
-          ? existing.some((row) => row.email === email)
+          ? existing.some((row) => sanitizeEmail(row.email) === email)
           : false;
         return NextResponse.json(
           {

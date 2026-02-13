@@ -4,6 +4,7 @@ import path from 'path';
 import { requireAuth } from '../../../lib/auth-server';
 import { signAuthToken } from '../../../lib/auth';
 import { getAdminById, updateAdminProfile } from '../../../lib/db-helpers';
+import { sanitizeEmail, sanitizeNameUpper } from '../../../lib/sanitize.js';
 
 export const runtime = 'nodejs';
 
@@ -62,8 +63,8 @@ export async function PUT(request) {
   try {
     const user = await requireAuth();
     const body = await request.json();
-    const name = typeof body.name === 'string' ? body.name : undefined;
-    const email = typeof body.email === 'string' ? body.email : undefined;
+    const name = typeof body.name === 'string' ? sanitizeNameUpper(body.name) : undefined;
+    const email = typeof body.email === 'string' ? sanitizeEmail(body.email) || '' : undefined;
     const professionRaw = typeof body.profession === 'string' ? body.profession.trim() : undefined;
     const allowedProfessions = new Set([
       'astrology',
