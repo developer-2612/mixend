@@ -44,7 +44,7 @@ export default function ReportsPage() {
       </div>
     );
   }
-
+conc
   const messageChartData = reports?.messageStats?.map(stat => ({
     date: new Date(stat.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     messages: stat.count
@@ -54,7 +54,6 @@ export default function ReportsPage() {
     name: stat.status.charAt(0).toUpperCase() + stat.status.slice(1),
     value: stat.count
   })) || [];
-
   const COLORS = ['#FF6B00', '#0A1F44', '#4CAF50', '#FFC107', '#F44336', '#2196F3'];
   const totalMessages = Math.max(0, Number(reports?.totalMessages || 0));
   const totalLeads = Math.max(0, Number(reports?.totalContacts || 0));
