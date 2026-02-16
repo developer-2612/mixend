@@ -538,10 +538,13 @@ button {
 
 /* Auth v2 pages */
 .auth-v2-shell {
+  position: relative;
+  isolation: isolate;
   background:
-    radial-gradient(circle at 5% 10%, rgb(255 107 0 / 0.2), transparent 30%),
-    radial-gradient(circle at 94% 14%, rgb(10 31 68 / 0.2), transparent 35%),
-    linear-gradient(135deg, #eef4ff 0%, #f6f9ff 46%, #fff5ee 100%);
+    radial-gradient(circle at 10% 12%, rgb(var(--aa-orange) / 0.3), transparent 36%),
+    radial-gradient(circle at 90% 16%, rgb(var(--aa-dark-blue) / 0.34), transparent 44%),
+    radial-gradient(circle at 52% 100%, rgb(var(--aa-dark-blue) / 0.16), transparent 54%),
+    linear-gradient(140deg, #f3f7ff 0%, #eef4ff 40%, #fff2e8 100%);
 }
 
 .auth-v2-shell::before {
@@ -550,27 +553,53 @@ button {
   inset: 0;
   pointer-events: none;
   background:
-    repeating-linear-gradient(
-      125deg,
-      rgb(10 31 68 / 0.04) 0 1px,
-      transparent 1px 23px
+    linear-gradient(
+      120deg,
+      rgb(var(--aa-dark-blue) / 0.12) 0%,
+      transparent 42%,
+      rgb(var(--aa-orange) / 0.14) 100%
     ),
     repeating-linear-gradient(
-      -125deg,
-      rgb(255 107 0 / 0.03) 0 1px,
-      transparent 1px 29px
+      132deg,
+      rgb(var(--aa-dark-blue) / 0.06) 0 1px,
+      transparent 1px 22px
+    ),
+    repeating-linear-gradient(
+      -132deg,
+      rgb(var(--aa-orange) / 0.04) 0 1px,
+      transparent 1px 30px
     );
-  mask-image: radial-gradient(circle at center, black 34%, transparent 86%);
-  animation: auth-v2-grid 24s linear infinite;
+  mix-blend-mode: soft-light;
+  animation: auth-v2-mesh-pan 30s ease-in-out infinite;
 }
 
-.auth-v2-login::after,
-.auth-v2-signup::after {
+.auth-v2-shell::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(110deg, rgb(10 31 68 / 0.08) 0%, transparent 42%, rgb(255 107 0 / 0.08) 100%);
+  background:
+    radial-gradient(circle at 50% 46%, rgb(255 255 255 / 0.6), transparent 64%),
+    repeating-radial-gradient(
+      circle at 40% 30%,
+      rgb(255 255 255 / 0.24) 0 1px,
+      transparent 1px 3px
+    );
+  opacity: 0.28;
+}
+
+.auth-v2-login {
+  background:
+    radial-gradient(circle at 18% 78%, rgb(var(--aa-dark-blue) / 0.17), transparent 38%),
+    radial-gradient(circle at 83% 24%, rgb(var(--aa-orange) / 0.21), transparent 44%),
+    linear-gradient(140deg, #f1f7ff 0%, #ebf3ff 40%, #fff1e5 100%);
+}
+
+.auth-v2-signup {
+  background:
+    radial-gradient(circle at 18% 24%, rgb(var(--aa-orange) / 0.21), transparent 38%),
+    radial-gradient(circle at 82% 82%, rgb(var(--aa-dark-blue) / 0.18), transparent 42%),
+    linear-gradient(138deg, #f6faff 0%, #edf3ff 44%, #fff3ea 100%);
 }
 
 .auth-v2-wrap {
@@ -580,30 +609,48 @@ button {
 .auth-v2-panel {
   position: relative;
   overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.24);
+  backdrop-filter: blur(7px);
+}
+
+.auth-v2-login .auth-v2-panel {
+  background:
+    linear-gradient(162deg, rgb(var(--aa-dark-blue) / 0.94) 2%, rgb(7 24 56 / 0.86) 56%, rgb(var(--aa-orange) / 0.52) 126%);
+}
+
+.auth-v2-signup .auth-v2-panel {
+  background:
+    linear-gradient(165deg, rgb(var(--aa-dark-blue) / 0.92) 0%, rgb(20 44 86 / 0.88) 52%, rgb(var(--aa-orange) / 0.48) 122%);
 }
 
 .auth-v2-panel::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at top right, rgb(255 107 0 / 0.23), transparent 42%);
+  background:
+    radial-gradient(circle at 12% 8%, rgb(255 255 255 / 0.18), transparent 40%),
+    radial-gradient(circle at 88% 20%, rgb(var(--aa-orange) / 0.34), transparent 44%);
   pointer-events: none;
 }
 
 .auth-v2-card {
   position: relative;
   overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.66);
+  background: rgb(255 255 255 / 0.9);
+  box-shadow:
+    0 28px 72px rgb(var(--aa-dark-blue) / 0.2),
+    inset 0 0 0 1px rgb(255 255 255 / 0.4);
 }
 
 .auth-v2-card::before {
   content: "";
   position: absolute;
-  top: -70%;
-  right: -25%;
-  width: 62%;
+  inset: auto -24% -46% auto;
+  width: 68%;
   aspect-ratio: 1;
   border-radius: 999px;
-  background: radial-gradient(circle, rgb(10 31 68 / 0.1), transparent 72%);
+  background: radial-gradient(circle, rgb(var(--aa-dark-blue) / 0.14), transparent 70%);
   pointer-events: none;
 }
 
@@ -612,22 +659,87 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  overflow: visible;
   width: clamp(8.75rem, 20vw, 10.5rem);
   aspect-ratio: 1;
   padding: 0.9rem;
   border-radius: 50%;
-  border: 1px solid rgb(255 255 255 / 0.85);
-  background: linear-gradient(120deg, rgb(255 255 255 / 0.96), rgb(236 243 255 / 0.82));
+  border: 1px solid rgb(255 255 255 / 0.88);
+  background: linear-gradient(132deg, rgb(255 255 255 / 0.96), rgb(233 241 255 / 0.84));
   box-shadow:
-    0 18px 34px rgb(10 31 68 / 0.24),
+    0 18px 34px rgb(var(--aa-dark-blue) / 0.24),
     inset 0 0 0 1px rgb(255 255 255 / 0.55);
+}
+
+.auth-v2-logo-backdrop {
+  position: absolute;
+  inset: -44%;
+  border-radius: 50%;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle, rgb(var(--aa-orange) / 0.2) 0%, transparent 58%),
+    conic-gradient(
+      from 120deg,
+      rgb(var(--aa-dark-blue) / 0.16) 0deg,
+      rgb(var(--aa-orange) / 0.2) 115deg,
+      rgb(var(--aa-dark-blue) / 0.08) 250deg,
+      rgb(var(--aa-dark-blue) / 0.16) 360deg
+    ),
+    url('/algoaura_logo.png') center / 62% no-repeat;
+  opacity: 0.34;
+  filter: saturate(1.06) blur(0.3px);
+  animation: auth-v2-logo-spin 24s linear infinite;
+}
+
+.auth-v2-logo-core {
+  position: relative;
+  z-index: 14;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 79%;
+  border-radius: 0.9rem;
+  padding: 0.48rem 0.65rem;
+  border: 1px solid rgb(255 255 255 / 0.9);
+  background: linear-gradient(140deg, rgb(255 255 255 / 0.98), rgb(246 250 255 / 0.93));
+  box-shadow:
+    0 12px 28px rgb(var(--aa-dark-blue) / 0.22),
+    inset 0 0 0 1px rgb(255 255 255 / 0.5);
+}
+
+.auth-v2-logo-orbit {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 2;
+  border: 1px solid rgb(255 255 255 / 0.72);
+  box-shadow: 0 8px 22px rgb(var(--aa-dark-blue) / 0.16);
+}
+
+.auth-v2-logo-orbit-one {
+  width: 0.9rem;
+  height: 0.9rem;
+  top: 8%;
+  right: 3%;
+  background: linear-gradient(140deg, rgb(var(--aa-orange) / 0.95), rgb(255 169 96 / 0.95));
+  animation: auth-v2-logo-orbit-one 8s ease-in-out infinite;
+}
+
+.auth-v2-logo-orbit-two {
+  width: 0.72rem;
+  height: 0.72rem;
+  left: 6%;
+  bottom: 12%;
+  background: linear-gradient(140deg, rgb(var(--aa-dark-blue) / 0.95), rgb(87 132 193 / 0.9));
+  animation: auth-v2-logo-orbit-two 9s ease-in-out infinite;
 }
 
 .auth-v2-logo-img {
   position: relative;
-  z-index: 10;
+  z-index: 15;
   width: 100%;
-  max-width: 7rem;
+  max-width: 100%;
   height: auto;
   object-fit: contain;
 }
@@ -636,8 +748,9 @@ button {
   content: "";
   position: absolute;
   inset: 1px;
+  z-index: 4;
   border-radius: inherit;
-  background: linear-gradient(130deg, rgb(255 255 255 / 0.65), rgb(255 255 255 / 0.15));
+  background: linear-gradient(135deg, rgb(255 255 255 / 0.66), rgb(255 255 255 / 0.14));
 }
 
 .auth-v2-logo-wrap::after {
@@ -647,6 +760,7 @@ button {
   left: 20%;
   right: 20%;
   height: 16%;
+  z-index: 11;
   border-radius: 999px;
   background: linear-gradient(90deg, rgb(255 255 255 / 0.8), rgb(255 255 255 / 0.2));
   animation: auth-v2-shimmer 7s ease-in-out infinite;
@@ -677,56 +791,120 @@ button {
 .auth-v2-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(1px);
+  filter: blur(0.8px);
   will-change: transform;
 }
 
 .auth-v2-blob-one {
-  top: -170px;
-  left: -130px;
-  width: 520px;
-  height: 430px;
-  border-radius: 49% 51% 56% 44% / 42% 45% 55% 58%;
-  background: radial-gradient(ellipse at 42% 38%, rgb(255 107 0 / 0.32) 0%, rgb(255 107 0 / 0.09) 60%, transparent 80%);
-  animation: auth-v2-float-one 17s ease-in-out infinite;
+  top: -210px;
+  left: -170px;
+  width: 560px;
+  height: 460px;
+  border-radius: 48% 52% 58% 42% / 42% 43% 57% 58%;
+  background: radial-gradient(ellipse at 42% 38%, rgb(var(--aa-orange) / 0.36) 0%, rgb(var(--aa-orange) / 0.1) 58%, transparent 80%);
+  animation: auth-v2-float-one 18s ease-in-out infinite;
 }
 
 .auth-v2-blob-two {
-  top: 8%;
-  right: -180px;
-  width: 590px;
-  height: 440px;
-  border-radius: 58% 42% 39% 61% / 51% 38% 62% 49%;
-  background: radial-gradient(ellipse at 58% 34%, rgb(10 31 68 / 0.29) 0%, rgb(10 31 68 / 0.11) 62%, transparent 81%);
-  animation: auth-v2-float-two 20s ease-in-out infinite;
+  top: 2%;
+  right: -210px;
+  width: 640px;
+  height: 470px;
+  border-radius: 57% 43% 40% 60% / 52% 36% 64% 48%;
+  background: radial-gradient(ellipse at 58% 34%, rgb(var(--aa-dark-blue) / 0.34) 0%, rgb(var(--aa-dark-blue) / 0.12) 62%, transparent 81%);
+  animation: auth-v2-float-two 21s ease-in-out infinite;
 }
 
 .auth-v2-blob-three {
-  bottom: -210px;
-  left: 14%;
-  width: 640px;
-  height: 470px;
-  border-radius: 41% 59% 61% 39% / 48% 55% 45% 52%;
-  background: radial-gradient(ellipse at 56% 41%, rgb(255 143 79 / 0.25) 0%, rgb(255 143 79 / 0.08) 64%, transparent 84%);
+  bottom: -220px;
+  left: 10%;
+  width: 680px;
+  height: 500px;
+  border-radius: 40% 60% 62% 38% / 48% 57% 43% 52%;
+  background: radial-gradient(ellipse at 54% 38%, rgb(var(--aa-orange) / 0.26) 0%, rgb(var(--aa-orange) / 0.1) 64%, transparent 84%);
   animation: auth-v2-float-three 19s ease-in-out infinite;
 }
 
 .auth-v2-blob-four {
   top: 58%;
-  right: 18%;
-  width: 230px;
-  height: 230px;
-  border-radius: 62% 38% 44% 56% / 45% 52% 48% 55%;
-  background: radial-gradient(circle, rgb(255 107 0 / 0.2) 0%, transparent 73%);
+  right: 14%;
+  width: 250px;
+  height: 250px;
+  border-radius: 60% 40% 44% 56% / 46% 52% 48% 54%;
+  background: radial-gradient(circle, rgb(var(--aa-orange) / 0.22) 0%, transparent 72%);
   animation: auth-v2-float-four 14s ease-in-out infinite;
 }
 
-@keyframes auth-v2-grid {
+.auth-v2-beam,
+.auth-v2-ring {
+  position: absolute;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.auth-v2-beam {
+  top: -28%;
+  width: min(46vw, 620px);
+  height: 140%;
+  opacity: 0.62;
+  filter: blur(0.45px);
+}
+
+.auth-v2-beam-one {
+  left: -18%;
+  background: linear-gradient(
+    115deg,
+    transparent 14%,
+    rgb(var(--aa-dark-blue) / 0.22) 44%,
+    rgb(var(--aa-dark-blue) / 0.04) 76%,
+    transparent 96%
+  );
+  transform: rotate(-16deg);
+  animation: auth-v2-beam-sway-one 16s ease-in-out infinite;
+}
+
+.auth-v2-beam-two {
+  right: -22%;
+  background: linear-gradient(
+    108deg,
+    transparent 9%,
+    rgb(var(--aa-orange) / 0.28) 42%,
+    rgb(var(--aa-orange) / 0.03) 72%,
+    transparent 96%
+  );
+  transform: rotate(17deg);
+  animation: auth-v2-beam-sway-two 19s ease-in-out infinite;
+}
+
+.auth-v2-ring {
+  border-radius: 999px;
+  border: 1px solid rgb(var(--aa-dark-blue) / 0.2);
+  background: radial-gradient(circle, rgb(255 255 255 / 0.18), transparent 72%);
+}
+
+.auth-v2-ring-one {
+  right: 17%;
+  top: 9%;
+  width: 220px;
+  height: 220px;
+  animation: auth-v2-ring-pulse 12s ease-in-out infinite;
+}
+
+.auth-v2-ring-two {
+  left: 8%;
+  bottom: 12%;
+  width: 310px;
+  height: 310px;
+  border-color: rgb(var(--aa-orange) / 0.24);
+  animation: auth-v2-ring-pulse 15s ease-in-out infinite reverse;
+}
+
+@keyframes auth-v2-mesh-pan {
   0% {
     transform: translate3d(0, 0, 0) scale(1);
   }
   50% {
-    transform: translate3d(-20px, 12px, 0) scale(1.02);
+    transform: translate3d(-24px, 16px, 0) scale(1.03);
   }
   100% {
     transform: translate3d(0, 0, 0) scale(1);
@@ -738,7 +916,7 @@ button {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
   }
   50% {
-    transform: translate3d(24px, 16px, 0) rotate(4deg) scale(1.08);
+    transform: translate3d(26px, 20px, 0) rotate(4deg) scale(1.08);
   }
   100% {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
@@ -750,7 +928,7 @@ button {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
   }
   50% {
-    transform: translate3d(-22px, -18px, 0) rotate(-4deg) scale(1.09);
+    transform: translate3d(-24px, -20px, 0) rotate(-4deg) scale(1.1);
   }
   100% {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
@@ -762,7 +940,7 @@ button {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
   }
   50% {
-    transform: translate3d(18px, -24px, 0) rotate(3deg) scale(1.1);
+    transform: translate3d(22px, -26px, 0) rotate(3deg) scale(1.1);
   }
   100% {
     transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
@@ -781,6 +959,74 @@ button {
   100% {
     transform: translate3d(0, 0, 0) scale(1);
     opacity: 0.7;
+  }
+}
+
+@keyframes auth-v2-beam-sway-one {
+  0% {
+    transform: rotate(-16deg) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: rotate(-12deg) translate3d(24px, -14px, 0);
+  }
+  100% {
+    transform: rotate(-16deg) translate3d(0, 0, 0);
+  }
+}
+
+@keyframes auth-v2-beam-sway-two {
+  0% {
+    transform: rotate(17deg) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: rotate(12deg) translate3d(-28px, 18px, 0);
+  }
+  100% {
+    transform: rotate(17deg) translate3d(0, 0, 0);
+  }
+}
+
+@keyframes auth-v2-ring-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.7;
+  }
+}
+
+@keyframes auth-v2-logo-spin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.04);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes auth-v2-logo-orbit-one {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(5px, -7px, 0) scale(1.14);
+  }
+}
+
+@keyframes auth-v2-logo-orbit-two {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-6px, 7px, 0) scale(1.12);
   }
 }
 
@@ -805,6 +1051,13 @@ button {
   .auth-v2-blob-two,
   .auth-v2-blob-three,
   .auth-v2-blob-four,
+  .auth-v2-beam-one,
+  .auth-v2-beam-two,
+  .auth-v2-ring-one,
+  .auth-v2-ring-two,
+  .auth-v2-logo-backdrop,
+  .auth-v2-logo-orbit-one,
+  .auth-v2-logo-orbit-two,
   .auth-v2-logo-wrap::after {
     animation: none !important;
   }
@@ -822,8 +1075,46 @@ button {
     padding: 0.75rem;
   }
 
+  .auth-v2-logo-backdrop {
+    inset: -34%;
+    opacity: 0.28;
+  }
+
+  .auth-v2-logo-core {
+    width: 84%;
+    padding: 0.38rem 0.5rem;
+  }
+
+  .auth-v2-logo-orbit-one {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+
+  .auth-v2-logo-orbit-two {
+    width: 0.62rem;
+    height: 0.62rem;
+  }
+
   .auth-v2-logo-img {
     max-width: 6.2rem;
+  }
+
+  .auth-v2-beam {
+    opacity: 0.38;
+  }
+
+  .auth-v2-ring-one {
+    top: 12%;
+    right: -6%;
+    width: 150px;
+    height: 150px;
+  }
+
+  .auth-v2-ring-two {
+    left: -10%;
+    bottom: 10%;
+    width: 200px;
+    height: 200px;
   }
 
   .auth-v2-blob-one,

@@ -108,6 +108,10 @@ export default function SignupPage() {
         <span className="auth-v2-blob auth-v2-blob-two" />
         <span className="auth-v2-blob auth-v2-blob-three" />
         <span className="auth-v2-blob auth-v2-blob-four" />
+        <span className="auth-v2-beam auth-v2-beam-one" />
+        <span className="auth-v2-beam auth-v2-beam-two" />
+        <span className="auth-v2-ring auth-v2-ring-one" />
+        <span className="auth-v2-ring auth-v2-ring-two" />
       </div>
 
       <div className="auth-v2-wrap relative z-10 mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl items-center">
@@ -115,14 +119,19 @@ export default function SignupPage() {
           <section className="auth-v2-card rounded-[2rem] border border-white/60 bg-white/92 p-6 shadow-[0_26px_65px_rgba(10,31,68,0.22)] backdrop-blur-sm sm:p-8 lg:p-10">
             <div className="mb-6 flex justify-center">
               <div className="auth-v2-logo-wrap">
-                <Image
-                  src="/algoaura_logo.png"
-                  alt="AlgoAura"
-                  width={360}
-                  height={110}
-                  priority
-                  className="auth-v2-logo-img"
-                />
+                <span className="auth-v2-logo-backdrop" aria-hidden="true" />
+                <span className="auth-v2-logo-orbit auth-v2-logo-orbit-one" aria-hidden="true" />
+                <span className="auth-v2-logo-orbit auth-v2-logo-orbit-two" aria-hidden="true" />
+                <div className="auth-v2-logo-core">
+                  <Image
+                    src="/algoaura_logo.png"
+                    alt="AlgoAura"
+                    width={360}
+                    height={110}
+                    priority
+                    className="auth-v2-logo-img"
+                  />
+                </div>
               </div>
             </div>
 
