@@ -13,6 +13,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { hasProductAccess } from '../../../lib/business.js';
+import { getBackendJwt } from '../../../lib/backend-auth.js';
 
 const WHATSAPP_API_BASE =
   process.env.NEXT_PUBLIC_WHATSAPP_API_BASE || 'http://localhost:3001';
@@ -32,6 +33,7 @@ export default function Navbar({ onMenuClick }) {
 
   useEffect(() => {
     let isMounted = true;
+    let socket = null;
     if (!user?.id) {
       setWhatsappConnected(false);
       return () => {
@@ -48,9 +50,21 @@ export default function Navbar({ onMenuClick }) {
 
     const fetchStatus = async () => {
       try {
-        const response = await fetch(
-          `${WHATSAPP_API_BASE}/whatsapp/status?adminId=${user.id}`
-        );
+        const token = await getBackendJwt();
+        const response = await fetch(`${WHATSAPP_API_BASE}/whatsapp/status?adminId=${user.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.status === 401) {
+          const refreshed = await getBackendJwt({ forceRefresh: true });
+          const retry = await fetch(`${WHATSAPP_API_BASE}/whatsapp/status?adminId=${user.id}`, {
+            headers: { Authorization: `Bearer ${refreshed}` },
+          });
+          if (!retry.ok) throw new Error('status');
+          const retryPayload = await retry.json();
+          if (!isMounted) return;
+          setWhatsappConnected(deriveConnected(retryPayload));
+          return;
+        }
         if (!response.ok) throw new Error('status');
         const payload = await response.json();
         if (!isMounted) return;
@@ -62,21 +76,32 @@ export default function Navbar({ onMenuClick }) {
 
     fetchStatus();
 
-    const socket = io(WHATSAPP_SOCKET_URL, {
-      query: { adminId: user.id },
-    });
+    const connectSocket = async () => {
+      try {
+        const token = await getBackendJwt();
+        if (!isMounted) return;
+        socket = io(WHATSAPP_SOCKET_URL, {
+          query: { adminId: user.id },
+          auth: { token: `Bearer ${token}` },
+        });
 
-    socket.on('whatsapp:status', (payload) => {
-      setWhatsappConnected(deriveConnected(payload));
-    });
+        socket.on('whatsapp:status', (payload) => {
+          setWhatsappConnected(deriveConnected(payload));
+        });
 
-    socket.on('connect_error', () => {
-      setWhatsappConnected(false);
-    });
+        socket.on('connect_error', () => {
+          setWhatsappConnected(false);
+        });
+      } catch (_) {
+        if (isMounted) setWhatsappConnected(false);
+      }
+    };
+
+    connectSocket();
 
     return () => {
       isMounted = false;
-      socket.disconnect();
+      if (socket) socket.disconnect();
     };
   }, [user?.id]);
 

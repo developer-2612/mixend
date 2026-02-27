@@ -23,6 +23,7 @@ import Button from '../components/common/Button.jsx';
 import Badge from '../components/common/Badge.jsx';
 import Loader from '../components/common/Loader.jsx';
 import { useAuth } from '../components/auth/AuthProvider.jsx';
+import { getBackendJwt } from '../../lib/backend-auth.js';
 
 const WHATSAPP_API_BASE =
   process.env.NEXT_PUBLIC_WHATSAPP_API_BASE || 'http://localhost:3001';
@@ -135,7 +136,10 @@ export default function InboxPage() {
 
     const fetchStatus = async () => {
       try {
-        const response = await fetch(`${WHATSAPP_API_BASE}/whatsapp/status?adminId=${user.id}`);
+        const token = await getBackendJwt();
+        const response = await fetch(`${WHATSAPP_API_BASE}/whatsapp/status?adminId=${user.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const data = await response.json();
         if (!mounted) return;
         setWhatsappReady(Boolean(data?.ready));

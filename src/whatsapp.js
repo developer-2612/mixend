@@ -1468,6 +1468,9 @@ export const sendAdminMessage = async ({ adminId, userId, text }) => {
   if (!messageText) {
     return { error: "Message is required", code: "message_required", status: 400 };
   }
+  if (messageText.length > 2000) {
+    return { error: "Message is too long", code: "message_too_long", status: 400 };
+  }
   const session = sessions.get(adminId);
   if (!session || !session.state?.isReady || !session.client) {
     return { error: "WhatsApp is not connected", code: "whatsapp_not_ready", status: 409 };
@@ -1475,12 +1478,12 @@ export const sendAdminMessage = async ({ adminId, userId, text }) => {
   touchSession(session);
 
   const [rows] = await db.query(
-    "SELECT id, phone FROM contacts WHERE id = ? LIMIT 1",
-    [userId]
+    "SELECT id, phone FROM contacts WHERE id = ? AND assigned_admin_id = ? LIMIT 1",
+    [userId, adminId]
   );
   const user = rows?.[0];
   if (!user?.phone) {
-    return { error: "Contact phone not found", code: "phone_missing", status: 404 };
+    return { error: "Contact not found for this admin", code: "contact_not_found", status: 404 };
   }
   const normalized = String(user.phone || "").replace(/[^\d]/g, "");
   if (!normalized) {

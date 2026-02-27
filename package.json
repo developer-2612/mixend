@@ -6,6 +6,7 @@
   "scripts": {
     "setup-db": "node db/seed.js",
     "wp": "nodemon src/server.js",
+    "backend": "node src/server.js",
     "backend:start": "node src/server.js",
     "dev": "next dev",
     "build": "next build",

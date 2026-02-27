@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMessage, faUsers, faCircleCheck, faCircleExclamation, faCalendarPlus, faCartShopping, faCalendarCheck } from '@fortawesome/free-solid-svg-icons';
@@ -107,10 +108,22 @@ export default function DashboardPage() {
 	return (
 		<div className="p-4 sm:p-6 space-y-6">
 			{/* Header */}
-			<div>
-				<h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Dashboard</h1>
-				<p className="text-gray-600 mt-2">Welcome back! Here's your business overview.</p>
-			</div>
+				<div className="flex items-center gap-3">
+					<div className="relative w-11 h-11 rounded-lg overflow-hidden ring-1 ring-gray-200 bg-white shrink-0">
+						<Image
+							src="/algoaura_logo.png"
+							alt="AlgoAura"
+							fill
+							sizes="44px"
+							className="object-cover"
+							priority
+						/>
+					</div>
+					<div>
+						<h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">Dashboard</h1>
+						<p className="text-gray-600 mt-2">Welcome back! Here's your business overview.</p>
+					</div>
+				</div>
 
 			{/* Quick Actions */}
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">

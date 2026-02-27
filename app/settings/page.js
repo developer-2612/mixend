@@ -254,6 +254,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const isMountedRef = { current: true };
+    let socket = null;
     if (!user?.id) {
       return () => {
         isMountedRef.current = false;
@@ -261,58 +262,72 @@ export default function SettingsPage() {
     }
     fetchWhatsAppStatus(isMountedRef);
 
-    const socket = io(WHATSAPP_SOCKET_URL, {
-      query: { adminId: user?.id },
-    });
+    const connectSocket = async () => {
+      try {
+        const token = await getBackendJwt();
+        if (!isMountedRef.current) return;
 
-    socket.on('whatsapp:status', (payload) => {
-      const nextStatus = payload?.status || 'idle';
-      const isCurrentAdmin =
-        payload?.activeAdminId && user?.id && payload.activeAdminId === user.id;
-      const derivedStatus =
-        nextStatus === 'connected' && !isCurrentAdmin
-          ? 'connected_other'
-          : nextStatus;
-      setWhatsappStatus(derivedStatus);
-      setWhatsappConnected(derivedStatus === 'connected');
-      if (derivedStatus === 'connected') {
-        updateWhatsappQr('');
-      } else if (payload?.qrImage) {
-        updateWhatsappQr(payload.qrImage);
-      } else if (derivedStatus !== 'qr') {
-        updateWhatsappQr('');
-      }
-    });
+        socket = io(WHATSAPP_SOCKET_URL, {
+          query: { adminId: user?.id },
+          auth: { token: `Bearer ${token}` },
+        });
 
-    socket.on('whatsapp:qr', (payload) => {
-      if (!payload) return;
-      if (typeof payload === 'string') {
-        updateWhatsappQr(payload);
-        return;
-      }
-      if (payload?.qrImage) {
-        updateWhatsappQr(payload.qrImage);
-        return;
-      }
-      if (payload?.qr) {
-        renderQrFromRaw(payload.qr);
-      }
-    });
+        socket.on('whatsapp:status', (payload) => {
+          const nextStatus = payload?.status || 'idle';
+          const isCurrentAdmin =
+            payload?.activeAdminId && user?.id && payload.activeAdminId === user.id;
+          const derivedStatus =
+            nextStatus === 'connected' && !isCurrentAdmin
+              ? 'connected_other'
+              : nextStatus;
+          setWhatsappStatus(derivedStatus);
+          setWhatsappConnected(derivedStatus === 'connected');
+          if (derivedStatus === 'connected') {
+            updateWhatsappQr('');
+          } else if (payload?.qrImage) {
+            updateWhatsappQr(payload.qrImage);
+          } else if (derivedStatus !== 'qr') {
+            updateWhatsappQr('');
+          }
+        });
 
-    socket.on('connect_error', () => {
-      setWhatsappActionStatus('Unable to connect to WhatsApp service.');
-    });
+        socket.on('whatsapp:qr', (payload) => {
+          if (!payload) return;
+          if (typeof payload === 'string') {
+            updateWhatsappQr(payload);
+            return;
+          }
+          if (payload?.qrImage) {
+            updateWhatsappQr(payload.qrImage);
+            return;
+          }
+          if (payload?.qr) {
+            renderQrFromRaw(payload.qr);
+          }
+        });
+
+        socket.on('connect_error', () => {
+          setWhatsappActionStatus('Unable to connect to WhatsApp service.');
+        });
+      } catch (error) {
+        if (isMountedRef.current) {
+          setWhatsappActionStatus('Unable to authenticate WhatsApp connection.');
+        }
+      }
+    };
+
+    connectSocket();
 
     return () => {
       isMountedRef.current = false;
-      socket.disconnect();
+      if (socket) socket.disconnect();
     };
   }, [fetchWhatsAppStatus, renderQrFromRaw, updateWhatsappQr, user?.id]);
 
   const handleStartWhatsApp = async () => {
     try {
       setWhatsappActionStatus('');
-      const response = await fetch(`${WHATSAPP_API_BASE}/whatsapp/start`, {
+      const response = await fetchWhatsAppApi('/whatsapp/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminId: user?.id }),
@@ -329,7 +344,7 @@ export default function SettingsPage() {
   const handleDisconnectWhatsApp = async () => {
     try {
       setWhatsappActionStatus('');
-      const response = await fetch(`${WHATSAPP_API_BASE}/whatsapp/disconnect`, {
+      const response = await fetchWhatsAppApi('/whatsapp/disconnect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminId: user?.id }),

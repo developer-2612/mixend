@@ -1,12 +1,27 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '../../../../lib/auth-server';
 import { signAuthToken } from '../../../../lib/auth';
+import { consumeRateLimit, getRateLimitHeaders } from '../../../../lib/rate-limit';
 
 const BACKEND_TOKEN_TTL_SECONDS = 10 * 60;
 
 export async function GET() {
   try {
     const user = await requireAuth();
+    const rateCheck = consumeRateLimit({
+      storeKey: 'auth-backend-token',
+      key: String(user.id),
+      limit: 120,
+      windowMs: 60 * 1000,
+      blockMs: 5 * 60 * 1000,
+    });
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Too many token requests. Please try again later.' },
+        { status: 429, headers: getRateLimitHeaders(rateCheck) }
+      );
+    }
+
     const expiresAt = Date.now() + BACKEND_TOKEN_TTL_SECONDS * 1000;
     const token = signAuthToken(
       {

@@ -4,6 +4,7 @@ import nodemailer from 'nodemailer';
 import { getConnection } from '../../../../lib/db-helpers';
 import { hashPassword, signAuthToken } from '../../../../lib/auth';
 import { sanitizeEmail, sanitizeNameUpper, sanitizePhone, sanitizeText } from '../../../../lib/sanitize.js';
+import { consumeRateLimit, getClientIp, getRateLimitHeaders } from '../../../../lib/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -190,11 +191,10 @@ async function findExistingAccountConflicts(connection, { phone, email }) {
   };
 }
 
-function conflictResponse(fields) {
+function conflictResponse(_fields) {
   return NextResponse.json(
     {
       error: 'An account with this phone or email already exists',
-      fields,
     },
     { status: 409 }
   );
@@ -205,8 +205,37 @@ export async function POST(request) {
     const body = await request.json();
     const action = String(body?.action || 'request_code').trim().toLowerCase();
     const payload = normalizeSignupPayload(body);
+    const clientIp = getClientIp(request);
+
+    const ipLimit = consumeRateLimit({
+      storeKey: 'auth-signup-ip',
+      key: clientIp,
+      limit: 20,
+      windowMs: 60 * 60 * 1000,
+      blockMs: 60 * 60 * 1000,
+    });
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many signup attempts. Please try again later.' },
+        { status: 429, headers: getRateLimitHeaders(ipLimit) }
+      );
+    }
 
     if (action === 'verify_code') {
+      const verifyLimit = consumeRateLimit({
+        storeKey: 'auth-signup-verify',
+        key: `${clientIp}:${payload.email || 'unknown'}`,
+        limit: 10,
+        windowMs: 15 * 60 * 1000,
+        blockMs: 30 * 60 * 1000,
+      });
+      if (!verifyLimit.allowed) {
+        return NextResponse.json(
+          { error: 'Too many verification attempts. Please try again later.' },
+          { status: 429, headers: getRateLimitHeaders(verifyLimit) }
+        );
+      }
+
       const verificationCode = String(body?.verification_code || body?.code || '').trim();
       if (!payload.email || !verificationCode) {
         return NextResponse.json({ error: 'Email and verification code are required' }, { status: 400 });
@@ -407,6 +436,20 @@ export async function POST(request) {
       );
     }
 
+    const requestCodeLimit = consumeRateLimit({
+      storeKey: 'auth-signup-request-code',
+      key: `${clientIp}:${email}`,
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+      blockMs: 60 * 60 * 1000,
+    });
+    if (!requestCodeLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many verification requests. Please try again later.' },
+        { status: 429, headers: getRateLimitHeaders(requestCodeLimit) }
+      );
+    }
+
     const transporter = buildTransporter();
     if (!transporter) {
       return NextResponse.json(
@@ -469,7 +512,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('Signup error:', error);
     return NextResponse.json(
-      { error: 'Server error: ' + error.message },
+      { error: 'Server error' },
       { status: 500 }
     );
   }

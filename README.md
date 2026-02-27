@@ -52,6 +52,18 @@ npm run backend
 ```
 Backend runs on `http://localhost:3001`.
 
+### WhatsApp Capacity
+- Session capacity is controlled by `WHATSAPP_MAX_SESSIONS` (default: `5`).
+- Each active WhatsApp session runs one browser client, so RAM/CPU are the real limits.
+- Practical guideline for one backend instance:
+  - 4 GB RAM: start with `5` sessions
+  - 8 GB RAM: test `8-12` sessions gradually
+- Tune these env vars to reduce memory pressure and idle buildup:
+  - `WHATSAPP_MAX_SESSIONS`
+  - `WHATSAPP_USER_IDLE_TTL_MS`
+  - `WHATSAPP_SESSION_IDLE_TTL_MS`
+  - `WHATSAPP_CLEANUP_INTERVAL_MS`
+
 ### WhatsApp Flow (Per Admin)
 - Each admin has a separate WhatsApp session.
 - QR is shown in **Settings → WhatsApp** in the frontend.

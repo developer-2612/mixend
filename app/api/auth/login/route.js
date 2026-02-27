@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getConnection } from '../../../../lib/db-helpers';
 import { signAuthToken, verifyPassword } from '../../../../lib/auth';
+import { consumeRateLimit, getClientIp, getRateLimitHeaders } from '../../../../lib/rate-limit';
 
 export async function POST(request) {
   try {
@@ -9,10 +10,40 @@ export async function POST(request) {
     const identifierLower = identifier.toLowerCase();
     const phoneDigits = identifier.replace(/\D/g, '');
 
+    const clientIp = getClientIp(request);
+    const ipLimit = consumeRateLimit({
+      storeKey: 'auth-login-ip',
+      key: clientIp,
+      limit: 30,
+      windowMs: 10 * 60 * 1000,
+      blockMs: 20 * 60 * 1000,
+    });
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many login attempts. Please try again later.' },
+        { status: 429, headers: getRateLimitHeaders(ipLimit) }
+      );
+    }
+
     if (!identifier || !password) {
       return NextResponse.json(
         { error: 'Email or phone and password are required' },
         { status: 400 }
+      );
+    }
+
+    const accountKey = `${clientIp}:${identifierLower || phoneDigits || identifier}`;
+    const accountLimit = consumeRateLimit({
+      storeKey: 'auth-login-account',
+      key: accountKey,
+      limit: 8,
+      windowMs: 10 * 60 * 1000,
+      blockMs: 20 * 60 * 1000,
+    });
+    if (!accountLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many login attempts. Please try again later.' },
+        { status: 429, headers: getRateLimitHeaders(accountLimit) }
       );
     }
 
@@ -108,7 +139,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(
-      { error: 'Server error: ' + error.message },
+      { error: 'Server error' },
       { status: 500 }
     );
   }

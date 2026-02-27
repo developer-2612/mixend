@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 import http from "node:http";
 import fs from "node:fs/promises";
 import { Server } from "socket.io";
+import { verifyAuthToken } from "../lib/auth.js";
+import { consumeRateLimit, getClientIp } from "../lib/rate-limit.js";
 import {
   startWhatsApp,
   stopWhatsApp,
@@ -14,6 +16,7 @@ import {
 dotenv.config();
 
 const app = express();
+app.disable("x-powered-by");
 app.use(express.json());
 
 const DEFAULT_PORT = 3001;
@@ -26,6 +29,9 @@ const FRONTEND_ORIGINS = new Set(
     .map((origin) => origin.trim())
     .filter(Boolean)
 );
+const BACKEND_SCOPE = "backend";
+const AUTH_REQUIRED_RESPONSE = { error: "Unauthorized" };
+const FORBIDDEN_RESPONSE = { error: "Forbidden" };
 
 const isLocalhostOrigin = (origin) =>
   /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
@@ -36,6 +42,60 @@ const resolveOrigin = (origin) => {
   return FRONTEND_ORIGIN;
 };
 
+const parseToken = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^Bearer\s+/i.test(raw)) {
+    return raw.replace(/^Bearer\s+/i, "").trim();
+  }
+  return raw;
+};
+
+const readAuthPayload = (rawToken) => {
+  const token = parseToken(rawToken);
+  if (!token) return null;
+  const payload = verifyAuthToken(token);
+  const id = Number(payload?.id);
+  if (!payload || payload?.scope !== BACKEND_SCOPE || !Number.isFinite(id)) {
+    return null;
+  }
+  return {
+    id,
+    admin_tier: String(payload?.admin_tier || "client_admin"),
+  };
+};
+
+const canAccessAdmin = (authUser, adminId) => {
+  if (!authUser || !Number.isFinite(adminId)) return false;
+  return authUser.admin_tier === "super_admin" || authUser.id === adminId;
+};
+
+const authenticateBackendToken = (req, res, next) => {
+  const authUser = readAuthPayload(req.headers?.authorization);
+  if (!authUser) {
+    res.status(401).json(AUTH_REQUIRED_RESPONSE);
+    return;
+  }
+  req.authUser = authUser;
+  next();
+};
+
+const enforceRouteRateLimit = (req, res, { key, limit, windowMs, blockMs = 0 }) => {
+  const limiter = consumeRateLimit({
+    storeKey: `backend:${key}`,
+    key: `${req.authUser?.id || "unknown"}:${getClientIp(req)}`,
+    limit,
+    windowMs,
+    blockMs,
+  });
+  if (limiter.allowed) return true;
+  if (limiter.retryAfterSeconds) {
+    res.setHeader("Retry-After", String(limiter.retryAfterSeconds));
+  }
+  res.status(429).json({ error: "Too many requests. Please try again later." });
+  return false;
+};
+
 app.use((req, res, next) => {
   const origin = resolveOrigin(req.headers.origin);
   res.setHeader("Access-Control-Allow-Origin", origin);
@@ -43,6 +103,10 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
   res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   if (req.method === "OPTIONS") {
     res.status(204).end();
     return;
@@ -81,15 +145,31 @@ app.get("/health/storage", async (req, res) => {
   }
 });
 
-app.get("/whatsapp/status", (req, res) => {
-  const adminId = Number(req.query?.adminId);
-  res.json(getWhatsAppState(Number.isFinite(adminId) ? adminId : undefined));
+app.get("/whatsapp/status", authenticateBackendToken, (req, res) => {
+  if (!enforceRouteRateLimit(req, res, { key: "status", limit: 240, windowMs: 60_000 })) {
+    return;
+  }
+  const requestedAdminId = Number(req.query?.adminId);
+  const adminId = Number.isFinite(requestedAdminId) ? requestedAdminId : req.authUser.id;
+  if (!canAccessAdmin(req.authUser, adminId)) {
+    res.status(403).json(FORBIDDEN_RESPONSE);
+    return;
+  }
+  res.json(getWhatsAppState(adminId));
 });
 
-app.post("/whatsapp/start", async (req, res) => {
+app.post("/whatsapp/start", authenticateBackendToken, async (req, res) => {
   try {
-    const adminId = Number(req.body?.adminId);
-    const result = await startWhatsApp(Number.isFinite(adminId) ? adminId : undefined);
+    if (!enforceRouteRateLimit(req, res, { key: "start", limit: 12, windowMs: 10 * 60_000, blockMs: 10 * 60_000 })) {
+      return;
+    }
+    const requestedAdminId = Number(req.body?.adminId);
+    const adminId = Number.isFinite(requestedAdminId) ? requestedAdminId : req.authUser.id;
+    if (!canAccessAdmin(req.authUser, adminId)) {
+      res.status(403).json(FORBIDDEN_RESPONSE);
+      return;
+    }
+    const result = await startWhatsApp(adminId);
     if (result?.error) {
       res.status(400).json(result);
       return;
@@ -101,10 +181,18 @@ app.post("/whatsapp/start", async (req, res) => {
   }
 });
 
-app.post("/whatsapp/disconnect", async (req, res) => {
+app.post("/whatsapp/disconnect", authenticateBackendToken, async (req, res) => {
   try {
-    const adminId = Number(req.body?.adminId);
-    const result = await stopWhatsApp(Number.isFinite(adminId) ? adminId : undefined);
+    if (!enforceRouteRateLimit(req, res, { key: "disconnect", limit: 12, windowMs: 10 * 60_000, blockMs: 10 * 60_000 })) {
+      return;
+    }
+    const requestedAdminId = Number(req.body?.adminId);
+    const adminId = Number.isFinite(requestedAdminId) ? requestedAdminId : req.authUser.id;
+    if (!canAccessAdmin(req.authUser, adminId)) {
+      res.status(403).json(FORBIDDEN_RESPONSE);
+      return;
+    }
+    const result = await stopWhatsApp(adminId);
     if (result?.error) {
       res.status(400).json(result);
       return;
@@ -116,13 +204,21 @@ app.post("/whatsapp/disconnect", async (req, res) => {
   }
 });
 
-app.post("/whatsapp/send", async (req, res) => {
+app.post("/whatsapp/send", authenticateBackendToken, async (req, res) => {
   try {
-    const adminId = Number(req.body?.adminId);
+    if (!enforceRouteRateLimit(req, res, { key: "send", limit: 90, windowMs: 60_000, blockMs: 2 * 60_000 })) {
+      return;
+    }
+    const requestedAdminId = Number(req.body?.adminId);
+    const adminId = Number.isFinite(requestedAdminId) ? requestedAdminId : req.authUser.id;
+    if (!canAccessAdmin(req.authUser, adminId)) {
+      res.status(403).json(FORBIDDEN_RESPONSE);
+      return;
+    }
     const userId = Number(req.body?.userId);
     const message = String(req.body?.message || "").trim();
     const result = await sendAdminMessage({
-      adminId: Number.isFinite(adminId) ? adminId : undefined,
+      adminId,
       userId: Number.isFinite(userId) ? userId : undefined,
       text: message,
     });
@@ -151,6 +247,26 @@ const io = new Server(server, {
   },
 });
 
+io.use((socket, next) => {
+  const authHeader = socket.handshake?.auth?.token || socket.handshake?.headers?.authorization;
+  const authUser = readAuthPayload(authHeader);
+  if (!authUser) {
+    next(new Error("Unauthorized"));
+    return;
+  }
+
+  const requestedAdminId = Number(socket.handshake?.query?.adminId);
+  const adminId = Number.isFinite(requestedAdminId) ? requestedAdminId : authUser.id;
+  if (!canAccessAdmin(authUser, adminId)) {
+    next(new Error("Forbidden"));
+    return;
+  }
+
+  socket.data.authUser = authUser;
+  socket.data.adminId = adminId;
+  next();
+});
+
 const enableRedisAdapter = async (ioServer) => {
   const redisUrl = process.env.REDIS_URL;
   if (!redisUrl) return;
@@ -170,7 +286,7 @@ const enableRedisAdapter = async (ioServer) => {
 await enableRedisAdapter(io);
 
 io.on("connection", (socket) => {
-  const adminId = Number(socket.handshake.query?.adminId);
+  const adminId = Number(socket.data?.adminId);
   if (Number.isFinite(adminId)) {
     const room = `admin:${adminId}`;
     socket.join(room);

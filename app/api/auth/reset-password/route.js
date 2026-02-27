@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getConnection } from '../../../../lib/db-helpers';
 import { hashPassword } from '../../../../lib/auth';
+import { consumeRateLimit, getClientIp, getRateLimitHeaders } from '../../../../lib/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -15,11 +16,40 @@ export async function POST(request) {
     const identifier = String(body?.email || body?.identifier || '').trim();
     const tempPassword = String(body?.tempPassword || '').trim();
     const newPassword = String(body?.newPassword || '').trim();
+    const clientIp = getClientIp(request);
+
+    const ipLimit = consumeRateLimit({
+      storeKey: 'auth-reset-ip',
+      key: clientIp,
+      limit: 10,
+      windowMs: 15 * 60 * 1000,
+      blockMs: 30 * 60 * 1000,
+    });
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many reset attempts. Please try again later.' },
+        { status: 429, headers: getRateLimitHeaders(ipLimit) }
+      );
+    }
 
     if (!identifier || !tempPassword || !newPassword) {
       return NextResponse.json(
         { error: 'Email/phone, temporary password, and new password are required' },
         { status: 400 }
+      );
+    }
+
+    const accountLimit = consumeRateLimit({
+      storeKey: 'auth-reset-account',
+      key: `${clientIp}:${identifier.toLowerCase()}`,
+      limit: 6,
+      windowMs: 15 * 60 * 1000,
+      blockMs: 30 * 60 * 1000,
+    });
+    if (!accountLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many reset attempts. Please try again later.' },
+        { status: 429, headers: getRateLimitHeaders(accountLimit) }
       );
     }
 
@@ -74,6 +104,6 @@ export async function POST(request) {
     }
   } catch (error) {
     console.error('Reset password error:', error);
-    return NextResponse.json({ error: 'Server error: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

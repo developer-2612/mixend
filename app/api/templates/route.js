@@ -30,7 +30,7 @@ export async function GET(request) {
     if (error.status === 401) {
       return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    return Response.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -63,6 +63,6 @@ export async function POST(request) {
     if (error.status === 401) {
       return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    return Response.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

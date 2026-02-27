@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -96,14 +97,19 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
     >
       {/* Logo */}
       <div className="p-4 sm:p-6 border-b border-white/10 flex items-center justify-between">
-        {showLabels && (
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-aa-orange rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">A</span>
-            </div>
-            <span className="text-white font-bold text-xl">AlgoAura</span>
+        <div className={`flex items-center ${showLabels ? 'gap-3' : 'flex-1 justify-center'}`}>
+          <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-white/10 ring-1 ring-white/15 shrink-0">
+            <Image
+              src="/algoaura_logo.png"
+              alt="AlgoAura"
+              fill
+              sizes="40px"
+              className="object-cover"
+              priority
+            />
           </div>
-        )}
+          {showLabels && <span className="text-white font-bold text-xl">AlgoAura</span>}
+        </div>
         {mobileOpen && (
           <button
             type="button"

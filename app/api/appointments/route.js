@@ -44,7 +44,7 @@ export async function GET(req) {
     if (error.status === 401) {
       return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    return Response.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -121,6 +121,6 @@ export async function POST(req) {
     if (error.status === 401) {
       return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    return Response.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

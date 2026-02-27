@@ -6,6 +6,7 @@ import {
 } from '../../../../../lib/db-helpers';
 import { parsePagination } from '../../../../../lib/api-utils';
 import { requireAuth } from '../../../../../lib/auth-server';
+import { signAuthToken } from '../../../../../lib/auth';
 
 export const runtime = 'nodejs';
 
@@ -13,6 +14,7 @@ const WHATSAPP_API_BASE =
   process.env.WHATSAPP_API_BASE ||
   process.env.NEXT_PUBLIC_WHATSAPP_API_BASE ||
   'http://localhost:3001';
+const BACKEND_TOKEN_TTL_SECONDS = 10 * 60;
 
 export async function GET(req, context) {
   try {
@@ -64,7 +66,7 @@ export async function GET(req, context) {
     if (error.status === 401) {
       return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    return Response.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -90,9 +92,20 @@ export async function POST(req, context) {
 
     let payload;
     try {
+      const backendToken = signAuthToken(
+        {
+          id: authUser.id,
+          admin_tier: authUser.admin_tier,
+          scope: 'backend',
+        },
+        { expiresIn: `${BACKEND_TOKEN_TTL_SECONDS}s` }
+      );
       const whatsappResponse = await fetch(`${WHATSAPP_API_BASE}/whatsapp/send`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${backendToken}`,
+        },
         body: JSON.stringify({
           adminId: authUser.id,
           userId,
@@ -124,6 +137,6 @@ export async function POST(req, context) {
     if (error.status === 401) {
       return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    return Response.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
